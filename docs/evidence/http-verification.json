@@ -1,0 +1,14 @@
+{
+  "executed_at": "2026-10-22T10:57:57Z",
+  "target": "local production server, Next.js 16.4.2",
+  "checks": 15,
+  "result": "passed",
+  "event_id": "f6542f2f-59d4-463a-aa20-b6372860fd85",
+  "batch_id": "SR-D2F9B4CE",
+  "passport_id": "7906f1e5-f952-4ddc-a5f3-cd11e1a2f5a7",
+  "metrics": {
+    "captured": 100,
+    "recovered": 82,
+    "rejected": 18
+  }
+}

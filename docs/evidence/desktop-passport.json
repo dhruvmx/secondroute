@@ -1,0 +1,90 @@
+{
+  "payload": {
+    "id": "5f95a674-8977-43a2-bbaf-97810703d884",
+    "event": "Riverlight Festival",
+    "method": "Recipient measured accepted weight; coordinator attestation. No emissions estimate.",
+    "custody": [
+      {
+        "role": "admin",
+        "action": "Seeded demonstration record",
+        "details": {},
+        "created_at": "2026-10-22T10:35:50.292Z"
+      },
+      {
+        "role": "worker",
+        "action": "Captured",
+        "details": {
+          "weight": 20
+        },
+        "created_at": "2026-10-22T10:36:43.537Z"
+      },
+      {
+        "role": "coordinator",
+        "action": "Assigned",
+        "details": {},
+        "created_at": "2026-10-22T10:37:52.093Z"
+      },
+      {
+        "role": "worker",
+        "action": "Collected",
+        "details": {
+          "claimed_weight": 148
+        },
+        "created_at": "2026-10-22T10:37:57.771Z"
+      },
+      {
+        "role": "partner",
+        "action": "Received",
+        "details": {
+          "missing": 0,
+          "accepted": 140,
+          "rejected": 8
+        },
+        "created_at": "2026-10-22T10:45:15.701Z"
+      },
+      {
+        "role": "coordinator",
+        "action": "Verified",
+        "details": {
+          "accepted": 140,
+          "rejected": 8,
+          "attestation": "Coordinator reviewed the recipient receipt and discrepancy. This is an attestation, not proof of physical truth."
+        },
+        "created_at": "2026-10-22T10:45:24.894Z"
+      }
+    ],
+    "batch_id": "SR-1041",
+    "material": "Cardboard",
+    "revision": 2,
+    "statement": "Signatures detect changes and prove an attestation, not physical truth.",
+    "claimed_kg": 148,
+    "created_at": "2026-10-22T10:58:17.991Z",
+    "missing_kg": 0,
+    "accepted_kg": 140,
+    "destination": "Paper Loop Collective",
+    "rejected_kg": 8,
+    "source_zone": "North entrance",
+    "receipt_evidence": "8e1f2d01-6d7d-4392-aa2d-19ae277cc8b4",
+    "weight_provenance": [
+      {
+        "weight": 128,
+        "provenance": "estimated"
+      },
+      {
+        "weight": 20,
+        "provenance": "estimated"
+      }
+    ],
+    "public_schema_version": "secondroute.public.v1"
+  },
+  "hash": "159f44bedb00f481e07d13bd0054c4579e176775696c59f3b40e224ea0b71587",
+  "signature": "Gq2EPOFPfOfgQSZvU7tqJQFnuioIj2XClzfoIPDLm/umgq7qeF7hz73kpFkG/SYvgTx8t3GzLvGS8kc0hG3ZDg==",
+  "key_id": "6831bff7c7d7f49baffd",
+  "algorithm": "Ed25519",
+  "public_key": {
+    "x": "CnY9zRY6DlSVnDRGq0UFpcUc9Me15q8bCnQ4syDsQY0",
+    "crv": "Ed25519",
+    "kty": "OKP"
+  },
+  "status": "valid"
+}
