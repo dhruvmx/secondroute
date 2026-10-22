@@ -45,7 +45,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import type { Batch, State } from "@/lib/types";
-import { useUI } from "./ui-store";
+import { useUI, useSidebar, type SidebarMode } from "./ui-store";
 import { enqueue, readQueue, syncQueue, type PendingCapture } from "./offline";
 
 const nav = [
@@ -98,7 +98,10 @@ export default function Operations() {
   const [selected, setSelected] = useState<Batch | null>(null);
   const [queue, setQueue] = useState<PendingCapture[]>([]);
   const [online, setOnline] = useState(true);
-  const [sidebar, setSidebar] = useState(false);
+  const { mode: sidebarMode, setMode: setSidebarMode } = useSidebar();
+  useEffect(() => {
+    void useSidebar.persist.rehydrate();
+  }, []);
   const [busy, setBusy] = useState(false);
   const [help, setHelp] = useState(false);
   const { role, setRole } = useUI();
@@ -220,7 +223,6 @@ export default function Operations() {
   const ready = batches.filter((b) => b.status === "Ready");
   const go = (name: string) => {
     setView(name);
-    setSidebar(false);
     setSearch("");
     setStatus("");
   };
@@ -242,8 +244,13 @@ export default function Operations() {
     }
   }
   return (
-    <div className="app-shell">
-      <aside className={`sidebar ${sidebar ? "is-open" : ""}`}>
+    <div className="app-shell" data-sidebar-mode={sidebarMode}>
+      <aside
+        id="workspace-sidebar"
+        className="sidebar"
+        aria-label="Workspace menu"
+        tabIndex={0}
+      >
         <Link className="brand" href="/" aria-label="SecondRoute home">
           <Mark />
           <span>
@@ -259,10 +266,13 @@ export default function Operations() {
           <ChevronDown size={15} />
         </div>
         <div className="nav-label">WORKSPACE</div>
-        <nav>
+        <nav aria-label="Workspace navigation">
           {nav.map(([label, Icon]) => (
             <button
               key={label}
+              aria-label={label}
+              title={label}
+              aria-current={view === label ? "page" : undefined}
               onClick={() => go(label)}
               className={view === label ? "active" : ""}
             >
@@ -286,7 +296,6 @@ export default function Operations() {
               Every recovery starts with
               <br />a record you can follow.
             </p>
-            <span className="route-doodle">↳ · · · · · ↗</span>
           </div>
           <button
             className={view === "Settings" ? "active" : ""}
@@ -323,9 +332,15 @@ export default function Operations() {
         <header className="topbar">
           <div className="breadcrumb">
             <button
-              className="mobile-menu icon-button"
-              aria-label="Open navigation"
-              onClick={() => setSidebar(!sidebar)}
+              className="sidebar-toggle icon-button"
+              aria-label={
+                sidebarMode === "open" ? "Close sidebar" : "Open sidebar"
+              }
+              aria-controls="workspace-sidebar"
+              aria-expanded={sidebarMode === "open"}
+              onClick={() =>
+                setSidebarMode(sidebarMode === "open" ? "closed" : "open")
+              }
             >
               <Menu size={22} />
             </button>
@@ -334,6 +349,26 @@ export default function Operations() {
             <strong>{view}</strong>
           </div>
           <div className="top-actions">
+            <div
+              className="sidebar-modes"
+              role="group"
+              aria-label="Sidebar behavior"
+            >
+              {(["open", "closed", "hover"] as SidebarMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  aria-pressed={sidebarMode === mode}
+                  title={
+                    mode === "hover"
+                      ? "Expand on pointer hover or keyboard focus"
+                      : `Keep sidebar ${mode}`
+                  }
+                  onClick={() => setSidebarMode(mode)}
+                >
+                  {mode[0].toUpperCase() + mode.slice(1)}
+                </button>
+              ))}
+            </div>
             <span className="demo-pill">
               <span />
               DEMO WORKSPACE

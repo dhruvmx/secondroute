@@ -8,6 +8,8 @@ SecondRoute coordinates event material recovery: capture, confirm, group, assign
 
 This project targets desktop browsers. Field capture and offline retry are part of the desktop web application.
 
+The header provides Open, Closed, and Hover sidebar modes. Open keeps the full menu visible. Closed keeps an icon rail and gives the page more space. Hover expands the rail when the pointer or keyboard focus enters it, then collapses it when they leave. The mode is saved on this browser. The left menu has its own vertical scrollbar, so settings and role controls remain reachable in short windows.
+
 ## Run locally
 
 Requires Node.js 22 or later and npm. From this directory:

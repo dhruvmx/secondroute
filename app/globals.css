@@ -245,13 +245,6 @@ small {
   color: #929889;
   margin-top: 8px;
 }
-.route-doodle {
-  position: absolute;
-  font-size: 25px;
-  right: 11px;
-  bottom: 3px;
-  color: #b0bd9d;
-}
 .profile {
   display: flex;
   align-items: center;
@@ -2245,4 +2238,204 @@ th {
   margin-left: 7px;
   color: #536e45;
   font-weight: 500;
+}
+
+/* Sidebar navigation stays independently scrollable at every desktop height. */
+.app-shell {
+  --sidebar-width: 238px;
+  --sidebar-space: var(--sidebar-width);
+}
+.app-shell[data-sidebar-mode="closed"],
+.app-shell[data-sidebar-mode="hover"] {
+  --sidebar-space: 64px;
+}
+.app-shell .sidebar {
+  width: var(--sidebar-space);
+  height: 100dvh;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #9cae8e #f0f3e9;
+  transform: none;
+  transition: width 0.18s ease;
+  padding: 24px 12px 0;
+}
+.sidebar::-webkit-scrollbar {
+  width: 7px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: #9cae8e;
+  border-radius: 8px;
+}
+.sidebar::-webkit-scrollbar-track {
+  background: #f0f3e9;
+}
+.sidebar > * {
+  flex-shrink: 0;
+}
+.sidebar:focus-visible {
+  outline-offset: -3px;
+}
+.app-shell > main {
+  margin-left: var(--sidebar-space);
+  width: calc(100% - var(--sidebar-space));
+  min-width: 0;
+  transition:
+    margin-left 0.18s ease,
+    width 0.18s ease;
+}
+.sidebar-toggle {
+  display: inline-flex;
+  min-width: 32px;
+  min-height: 32px;
+}
+.sidebar-modes {
+  display: flex;
+  gap: 2px;
+  background: #f0f3e9;
+  border: 1px solid #dfe6d6;
+  border-radius: 6px;
+  padding: 3px;
+}
+.sidebar-modes button {
+  border: 0;
+  background: transparent;
+  color: #697c59;
+  padding: 7px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  min-height: 30px;
+}
+.sidebar-modes button[aria-pressed="true"] {
+  background: #294d38;
+  color: #fffefa;
+}
+.sidebar-modes button:hover:not([aria-pressed="true"]) {
+  background: #e1e9d8;
+}
+.app-shell[data-sidebar-mode="hover"]
+  .sidebar:is(:hover, :has(:focus-visible)) {
+  width: var(--sidebar-width);
+  box-shadow: 12px 0 30px #25382e18;
+}
+.app-shell[data-sidebar-mode="closed"] .sidebar,
+.app-shell[data-sidebar-mode="hover"]
+  .sidebar:not(:hover):not(:has(:focus-visible)) {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.app-shell[data-sidebar-mode="closed"]
+  .sidebar
+  :is(.workspace, .nav-label, .route-note, .profile),
+.app-shell[data-sidebar-mode="hover"]
+  .sidebar:not(:hover):not(:has(:focus-visible))
+  :is(.workspace, .nav-label, .route-note, .profile) {
+  display: none;
+}
+.app-shell[data-sidebar-mode="closed"] .sidebar .brand > span:not(.brand-mark),
+.app-shell[data-sidebar-mode="hover"]
+  .sidebar:not(:hover):not(:has(:focus-visible))
+  .brand
+  > span:not(.brand-mark) {
+  display: none;
+}
+.app-shell[data-sidebar-mode="closed"] .sidebar .brand,
+.app-shell[data-sidebar-mode="hover"]
+  .sidebar:not(:hover):not(:has(:focus-visible))
+  .brand {
+  justify-content: center;
+  padding: 0;
+  margin-bottom: 30px;
+}
+.app-shell[data-sidebar-mode="closed"] .sidebar button,
+.app-shell[data-sidebar-mode="hover"]
+  .sidebar:not(:hover):not(:has(:focus-visible))
+  button {
+  justify-content: center;
+  gap: 0;
+  font-size: 0;
+  padding: 12px 0;
+  min-height: 42px;
+}
+.app-shell[data-sidebar-mode="closed"] .sidebar button > span,
+.app-shell[data-sidebar-mode="closed"] .sidebar button > em,
+.app-shell[data-sidebar-mode="hover"]
+  .sidebar:not(:hover):not(:has(:focus-visible))
+  button
+  > span,
+.app-shell[data-sidebar-mode="hover"]
+  .sidebar:not(:hover):not(:has(:focus-visible))
+  button
+  > em {
+  display: none;
+}
+.app-shell[data-sidebar-mode="closed"] .sidebar .sidebar-bottom,
+.app-shell[data-sidebar-mode="hover"]
+  .sidebar:not(:hover):not(:has(:focus-visible))
+  .sidebar-bottom {
+  padding: 12px 0;
+}
+@media (max-width: 1200px) {
+  .app-shell {
+    --sidebar-width: 210px;
+  }
+}
+@media (max-width: 950px) {
+  .app-shell {
+    --sidebar-width: 200px;
+  }
+  .top-actions {
+    gap: 12px;
+  }
+}
+@media (max-width: 700px) {
+  .app-shell {
+    --sidebar-width: 220px;
+  }
+  .sidebar-modes button {
+    font-size: 10px;
+    padding: 6px;
+  }
+  .top-actions {
+    gap: 7px;
+  }
+  .top-actions .demo-pill,
+  .breadcrumb > span,
+  .breadcrumb > svg {
+    display: none;
+  }
+}
+
+/* Keep icon targets anchored while hover mode reveals labels. */
+.app-shell .sidebar .brand {
+  height: 30px;
+  min-height: 30px;
+  margin-bottom: 0;
+}
+.app-shell .sidebar .workspace {
+  height: 62px;
+  min-height: 62px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.app-shell .sidebar .nav-label {
+  height: 12px;
+  min-height: 12px;
+}
+.app-shell[data-sidebar-mode="closed"] .sidebar .workspace,
+.app-shell[data-sidebar-mode="hover"]
+  .sidebar:not(:hover):not(:has(:focus-visible))
+  .workspace {
+  display: flex;
+  visibility: hidden;
+  pointer-events: none;
+}
+.app-shell[data-sidebar-mode="closed"] .sidebar .nav-label,
+.app-shell[data-sidebar-mode="hover"]
+  .sidebar:not(:hover):not(:has(:focus-visible))
+  .nav-label {
+  display: block;
+  visibility: hidden;
+  pointer-events: none;
 }

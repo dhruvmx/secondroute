@@ -49,6 +49,12 @@ The final HTTP run created event `f6542f2f-59d4-463a-aa20-b6372860fd85`, batch `
 
 The Riverlight PDF was additionally rendered with bundled PDFium and visually inspected: one page, legible text, no clipping or overlap, with 597 kg captured, 208 kg confirmed recovery, and 30 kg rejected. These are aggregate fictional seed plus browser-test quantities.
 
+## Sidebar follow-up verification
+
+The desktop sidebar now has its own vertical scrollbar and Open, Closed, and Hover modes. Its selection persists in versioned browser storage. The header toggle also switches directly between Open and Closed. Hover reveals the menu as an overlay without shifting the page; keyboard focus can reveal the same navigation. Navigation buttons retain accessible labels when their text is hidden. The production build, type checking, lint, and all three automated tests passed after these changes.
+
+Browser checks used a 1440 by 560 viewport. The menu had 945 pixels of scrollable content within its 560 pixel height. Keyboard scrolling reached the lower settings and demo role controls while the main page scroll position remained zero. Closed mode used a 64 pixel rail with the main page beginning at 64 pixels. Hover expanded to the normal sidebar width and collapsed after pointer exit. Saved Hover mode was restored after reload, and both directions of the header toggle were exercised. The decorative route arrow in the sidebar note was removed; its DOM element count was zero. Updated evidence is `docs/evidence/sidebar-scroll.jpg`.
+
 ## Remaining limits
 
 Connected Supabase Auth, RLS, hosted database, Storage and Realtime are not implemented or verified. Connected mode fails closed with HTTP 503. Partner users in local demo are role simulations rather than authenticated, partner-specific accounts. Mapbox SDK presence does not mean a geographic integration is complete. The venue diagram is illustrative. Gemini has a real optional server adapter, but no credentialed call was executed. Classification is manual. No trained classifier, blockchain contract, emissions methodology, complete key-rotation operation, or production multi-tenant security claim is made.
