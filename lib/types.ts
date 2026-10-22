@@ -26,6 +26,8 @@ export interface Batch {
   revision: number;
 }
 export interface Event {
+  latitude?: number | null;
+  longitude?: number | null;
   id: string;
   name: string;
   location: string;
@@ -33,6 +35,8 @@ export interface Event {
   status: string;
 }
 export interface Zone {
+  latitude?: number | null;
+  longitude?: number | null;
   id: string;
   event_id: string;
   name: string;

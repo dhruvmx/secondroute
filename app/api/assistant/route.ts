@@ -1,14 +1,15 @@
-import { roleFor, errorResponse, ApiError } from "../../../lib/auth";
+import { actorFor } from "@/lib/account-auth";
+import { errorResponse, ApiError } from "../../../lib/auth";
 import { state } from "../../../lib/service";
 import { z } from "zod";
 export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
-    roleFor(request);
+    const actor = await actorFor(request);
     const { question, event_id } = await request.json();
     if (typeof question !== "string" || question.length > 1000)
       throw new ApiError("Ask a question below 1000 characters");
-    const s = await state(event_id);
+    const s = await state(event_id, undefined, actor.orgId);
     const records = s.batches.map((b) => ({
       id: b.id,
       material: b.material,

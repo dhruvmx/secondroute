@@ -1,4 +1,5 @@
-import { roleFor, errorResponse, ApiError, allow } from "../../../lib/auth";
+import { actorFor } from "@/lib/account-auth";
+import { errorResponse, ApiError, allow } from "../../../lib/auth";
 import { db, dataDir } from "../../../lib/db";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -6,7 +7,8 @@ import path from "node:path";
 export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
-    const role = roleFor(request);
+    const actor = await actorFor(request, true);
+    const role = actor.role;
     allow(role, ["admin", "coordinator", "worker", "partner"]);
     if (Number(request.headers.get("content-length")) > 6000000)
       throw new ApiError("File exceeds 5 MB limit", 413);
@@ -36,7 +38,7 @@ export async function POST(request: Request) {
     const d = await db();
     await d.query(
       "INSERT INTO media(id,org_id,mime,path) VALUES($1,$2,$3,$4)",
-      [id, "demo-org", mime, filename],
+      [id, actor.orgId, mime, filename],
     );
     return Response.json({ ok: true, id, url: "/api/media/" + id });
   } catch (e) {

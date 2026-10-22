@@ -25,23 +25,22 @@ export default function Welcome() {
           <div>
             <strong>Capture. Dispatch. Receive. Verify.</strong>
             <p>
-              A complete local desktop demonstration with fictional event
-              records.
+              A desktop workspace for material recovery, with sample records to
+              explore.
             </p>
           </div>
         </div>
         <Link className="primary" href="/">
-          Open demo
+          Open workspace
           <ArrowRight size={17} />
         </Link>
         <div className="info-strip">
           <ShieldCheck size={23} />
           <div>
-            <strong>Connected sign-in is unavailable</strong>
+            <strong>Your workspace starts with you</strong>
             <p>
-              Supabase authentication and organization policies must be
-              implemented and tested before connected operation. The local demo
-              uses explicit role switching.
+              Create an email account to manage your own events, materials and
+              recovery partners.
             </p>
           </div>
         </div>

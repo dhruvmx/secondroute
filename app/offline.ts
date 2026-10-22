@@ -1,5 +1,6 @@
 "use client";
 export interface PendingCapture {
+  workspace_id?: string;
   idempotencyKey: string;
   action: "capture";
   eventId: string;
@@ -14,19 +15,28 @@ export interface PendingCapture {
   error?: string;
 }
 const KEY = "secondroute.capture-queue.v1";
+let workspace = "";
+const queueKey = () => (workspace ? `${KEY}.${workspace}` : KEY);
+export function setQueueWorkspace(id: string) {
+  workspace = id;
+  window.dispatchEvent(new Event("queuechange"));
+}
 export function readQueue(): PendingCapture[] {
   try {
-    return JSON.parse(localStorage.getItem(KEY) || "[]");
+    return JSON.parse(localStorage.getItem(queueKey()) || "[]");
   } catch {
     return [];
   }
 }
 export function writeQueue(queue: PendingCapture[]) {
-  localStorage.setItem(KEY, JSON.stringify(queue));
+  localStorage.setItem(queueKey(), JSON.stringify(queue));
   window.dispatchEvent(new Event("queuechange"));
 }
 export function enqueue(record: PendingCapture) {
-  writeQueue([...readQueue(), record]);
+  writeQueue([
+    ...readQueue(),
+    { ...record, ...(workspace ? { workspace_id: workspace } : {}) },
+  ]);
 }
 let syncing = false;
 export async function syncQueue() {

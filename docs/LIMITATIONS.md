@@ -1,15 +1,15 @@
 # Limitations and capability boundaries
 
-The local demonstration is not certified for production operations. See VERIFICATION.md for executed checks. Unexecuted tests and source-only integrations must not be represented as passing.
+The local desktop application is not certified for production operations. See VERIFICATION.md for executed checks. Unexecuted tests and source-only integrations must not be represented as passing.
 
 | Capability | Status and boundary |
 | --- | --- |
 | Local PostgreSQL | PGlite provides filesystem persistence; one application process, no production availability claim |
-| Demo roles | Explicit role header for fictional local data; not real authentication |
-| Connected Supabase | Credentials and end-to-end auth, RLS, Storage, Realtime verification required |
+| Accounts | Better Auth email/password accounts with isolated owner workspaces; no team invitations or independently authenticated partner accounts |
+| Optional identity and mail | Google OAuth and SMTP adapters need operator credentials and live provider verification |
 | Product scope | Desktop browser application |
 | Material classification | Manual; no trained classifier or inference claim |
-| Maps | Local zone diagram is not a road map; Mapbox requires token and integration verification |
+| Maps | Interactive OpenStreetMap embed; connectivity and provider availability required; no geocoding, offline maps or road routing |
 | Routing | Compatibility/capacity matching is not optimized road routing |
 | Gemini | Optional credentials required; deterministic assistance must retain its label |
 | Emissions | Unavailable without sourced geography/year/pathway/baseline factors and transport assumptions |
@@ -19,7 +19,7 @@ The local demonstration is not certified for production operations. See VERIFICA
 | Crew and task management | Active tasks are derived from batch states; no full crew administration or task scheduler |
 | Collection quantity | Full batch collection is supported; partial recipient acceptance and rejection are supported; partial collection planning is incomplete |
 | Key rotation | Key identifiers, persisted public keys, revisions and revocation exist; no complete operator rotation workflow |
-| Partner identity | Demo partner role is not authenticated to one specific partner |
+| Partner identity | Owner-recorded receipt evidence is not independently authenticated recipient identity |
 | Offline evidence | Quantity records queue offline; photo upload requires a connection |
 | Public deployment | Not implied by local success; hosting/runtime compatibility and credential access must be verified |
 

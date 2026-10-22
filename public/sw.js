@@ -1,4 +1,4 @@
-const CACHE = "secondroute-shell-v2";
+const CACHE = "secondroute-shell-v3";
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(
@@ -35,7 +35,8 @@ self.addEventListener("fetch", (event) => {
   if (
     event.request.method !== "GET" ||
     url.origin !== location.origin ||
-    url.pathname.startsWith("/api/")
+    (url.pathname !== "/" && !url.pathname.startsWith("/_next/static/")) ||
+    url.search.length > 0
   )
     return;
   event.respondWith(

@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "tsx --test tests/*.test.ts",
-    "test:http": "tsx tests/http.integration.ts",
+    "test:http": "tsx tests/accounts.integration.ts",
     "demo:seed": "tsx scripts/demo.ts seed",
     "demo:reset": "tsx scripts/demo.ts reset"
   },
@@ -20,9 +20,11 @@
   "dependencies": {
     "@electric-sql/pglite": "^0.5.11",
     "@supabase/supabase-js": "^2.118.0",
+    "better-auth": "^1.7.12",
+    "kysely": "^0.29.7",
     "lucide-react": "^1.61.0",
-    "mapbox-gl": "^3.33.0",
     "next": "^16.4.2",
+    "nodemailer": "^10.2.1",
     "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
     "react": "^19.3.1",
@@ -33,8 +35,8 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
-    "@types/mapbox-gl": "^3.4.1",
     "@types/node": "^26.6.5",
+    "@types/nodemailer": "^8.0.2",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

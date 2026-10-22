@@ -1,16 +1,21 @@
-import { roleFor, errorResponse } from "../../../lib/auth";
+import { actorFor } from "@/lib/account-auth";
+import { errorResponse } from "../../../lib/auth";
 import { state } from "../../../lib/service";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 export const runtime = "nodejs";
 export async function GET(request: Request) {
   try {
-    roleFor(request);
+    const actor = await actorFor(request);
     const url = new URL(request.url);
-    const s = await state(url.searchParams.get("event"), {
-      zone: url.searchParams.get("zone"),
-      status: url.searchParams.get("status"),
-      search: url.searchParams.get("search"),
-    });
+    const s = await state(
+      url.searchParams.get("event"),
+      {
+        zone: url.searchParams.get("zone"),
+        status: url.searchParams.get("status"),
+        search: url.searchParams.get("search"),
+      },
+      actor.orgId,
+    );
     const rows = [
       [
         "Batch",

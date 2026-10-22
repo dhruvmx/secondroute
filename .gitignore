@@ -2,6 +2,8 @@ node_modules/
 .next/
 data/
 .env.local
+.env*
+!.env.example
 *.tsbuildinfo
 .data/
 .test-data-*/

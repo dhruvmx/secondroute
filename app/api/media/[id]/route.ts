@@ -1,5 +1,6 @@
+import { actorFor } from "@/lib/account-auth";
 import { db } from "../../../../lib/db";
-import { roleFor, errorResponse, ApiError } from "../../../../lib/auth";
+import { errorResponse, ApiError } from "../../../../lib/auth";
 import { readFile } from "node:fs/promises";
 export const runtime = "nodejs";
 export async function GET(
@@ -7,12 +8,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    roleFor(request);
+    const actor = await actorFor(request);
     const { id } = await params;
     const d = await db();
     const q = await d.query<{ mime: string; path: string }>(
       "SELECT mime,path FROM media WHERE id=$1 AND org_id=$2",
-      [id, "demo-org"],
+      [id, actor.orgId],
     );
     if (!q.rows[0]) throw new ApiError("Evidence unavailable", 404);
     return new Response(await readFile(q.rows[0].path), {

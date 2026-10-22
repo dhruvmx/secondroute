@@ -12,7 +12,6 @@ import type {
   Capture,
   Custody,
 } from "./types";
-const org = "demo-org";
 const materials = [
   "Cardboard",
   "Paper",
@@ -28,6 +27,36 @@ const number = (x: unknown) => {
     throw new ApiError("Enter a positive weight below 100,000 kg");
   return n;
 };
+async function saveCoordinates(
+  tx: { query: (sql: string, params: unknown[]) => Promise<unknown> },
+  table: "events" | "zones",
+  id: string,
+  input: Record<string, unknown>,
+) {
+  if (
+    (input.latitude == null || input.latitude === "") &&
+    (input.longitude == null || input.longitude === "")
+  )
+    return;
+  const lat = Number(input.latitude),
+    lon = Number(input.longitude);
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lon) ||
+    Math.abs(lat) > 90 ||
+    Math.abs(lon) > 180 ||
+    input.latitude === "" ||
+    input.latitude == null ||
+    input.longitude === "" ||
+    input.longitude == null
+  )
+    throw new ApiError("Enter valid latitude and longitude coordinates");
+  await tx.query(`UPDATE ${table} SET latitude=$1,longitude=$2 WHERE id=$3`, [
+    lat,
+    lon,
+    id,
+  ]);
+}
 const text = (x: unknown, max = 2000) =>
   String(x ?? "")
     .trim()
@@ -39,6 +68,7 @@ export async function state(
     status?: string | null;
     search?: string | null;
   },
+  org = "demo-org",
 ): Promise<State> {
   const d = await db();
   const filter = event ? " AND event_id=$2" : "";
@@ -46,11 +76,12 @@ export async function state(
   const [events, zones, partners, batches, captures, custody, passports] =
     await Promise.all([
       d.query<Event>(
-        "SELECT id,name,location,date,status FROM events WHERE org_id=$1 ORDER BY date",
+        "SELECT id,name,location,date,status,latitude,longitude FROM events WHERE org_id=$1 ORDER BY date",
         [org],
       ),
       d.query<Zone>(
-        "SELECT id,event_id,name,x,y FROM zones WHERE org_id=$1" + filter,
+        "SELECT id,event_id,name,x,y,latitude,longitude FROM zones WHERE org_id=$1" +
+          filter,
         params,
       ),
       d.query<Partner>(
@@ -141,7 +172,7 @@ export async function state(
     captures: captureRows,
     custody: custody.rows.filter((c) => b.some((v) => v.id === c.batch_id)),
     passports: passports.rows.filter((p) => b.some((v) => v.id === p.batch_id)),
-    mode: "demo",
+    mode: org === "demo-org" ? "sample" : "workspace",
     metrics: {
       captured: captureRows.reduce((a, v) => a + Number(v.weight), 0),
       awaiting: sum(b.filter((v) => ["Ready", "Assigned"].includes(v.status))),
@@ -170,12 +201,21 @@ export async function state(
 export async function action(
   input: Record<string, unknown>,
   role: Role,
+  org = "demo-org",
 ): Promise<Record<string, unknown>> {
   const d = await db();
   const action = text(input.action);
   const id = text(input.batch_id || input.batchId || input.id);
   if (action === "reset") {
     allow(role, ["admin"]);
+    if (
+      org !== "demo-org" ||
+      (await d.query("SELECT id FROM memberships LIMIT 1")).rows.length
+    )
+      throw new ApiError(
+        "Sample reset is disabled when account workspaces exist",
+        403,
+      );
     await d.exec(
       "TRUNCATE audit_events,media,idempotency_records,passports,signing_keys,receipts,custody_events,captures,batches,partners,zones,events,memberships,organizations CASCADE",
     );
@@ -320,14 +360,18 @@ export async function action(
       allow(role, ["admin"]);
       const eventId = randomUUID();
       if (!text(input.name)) throw new ApiError("Event name is required");
-      await tx.query("INSERT INTO events VALUES($1,$2,$3,$4,$5,$6)", [
-        eventId,
-        org,
-        text(input.name),
-        text(input.location),
-        text(input.date) || "2026-10-22",
-        "Planning",
-      ]);
+      await tx.query(
+        "INSERT INTO events(id,org_id,name,location,date,status) VALUES($1,$2,$3,$4,$5,$6)",
+        [
+          eventId,
+          org,
+          text(input.name),
+          text(input.location),
+          text(input.date) || "2026-10-22",
+          "Planning",
+        ],
+      );
+      await saveCoordinates(tx, "events", eventId, input);
       return { ok: true, id: eventId };
     }
     if (action === "createZone") {
@@ -340,37 +384,114 @@ export async function action(
       if (!event.rows.length) throw new ApiError("Event unavailable", 403);
       if (!text(input.name)) throw new ApiError("Zone name is required");
       const zoneId = randomUUID();
-      await tx.query("INSERT INTO zones VALUES($1,$2,$3,$4,$5,$6)", [
-        zoneId,
-        org,
-        eventId,
-        text(input.name),
-        50,
-        50,
-      ]);
+      await tx.query(
+        "INSERT INTO zones(id,org_id,event_id,name,x,y) VALUES($1,$2,$3,$4,$5,$6)",
+        [zoneId, org, eventId, text(input.name), 50, 50],
+      );
+      await saveCoordinates(tx, "zones", zoneId, input);
       return { ok: true, id: zoneId };
+    }
+    if (action === "setLocation") {
+      allow(role, ["admin"]);
+      const eventId = text(input.event_id);
+      if (
+        !(
+          await tx.query("SELECT id FROM events WHERE org_id=$1 AND id=$2", [
+            org,
+            eventId,
+          ])
+        ).rows.length
+      )
+        throw new ApiError("Event unavailable", 404);
+      await saveCoordinates(tx, "events", eventId, input);
+      return { ok: true };
+    }
+    if (action === "createPartner") {
+      allow(role, ["admin"]);
+      const name = text(input.name, 100);
+      const acceptedMaterials = Array.isArray(input.materials)
+        ? input.materials.filter(
+            (m) => materials.includes(String(m)) && m !== "Unknown",
+          )
+        : [];
+      if (!name || !acceptedMaterials.length)
+        throw new ApiError("Enter a partner name and accepted materials");
+      const partnerId = randomUUID();
+      await tx.query("INSERT INTO partners VALUES($1,$2,$3,$4,$5,true,0)", [
+        partnerId,
+        org,
+        name,
+        JSON.stringify(acceptedMaterials),
+        number(input.capacity),
+      ]);
+      return { ok: true, id: partnerId };
     }
     if (action === "reviewCapture") {
       allow(role, ["admin", "coordinator"]);
       const captureId = text(input.capture_id || input.captureId);
       const material = text(input.material, 80);
       const notes = text(input.notes);
-      if (!materials.includes(material) || material === "Unknown") throw new ApiError("Review requires a supported known material");
-      if (!notes) throw new ApiError("Explain material confirmation and contamination handling");
-      const captures = await tx.query<Capture>("SELECT * FROM captures WHERE org_id=$1 AND id=$2 FOR UPDATE", [org, captureId]);
+      if (!materials.includes(material) || material === "Unknown")
+        throw new ApiError("Review requires a supported known material");
+      if (!notes)
+        throw new ApiError(
+          "Explain material confirmation and contamination handling",
+        );
+      const captures = await tx.query<Capture>(
+        "SELECT * FROM captures WHERE org_id=$1 AND id=$2 FOR UPDATE",
+        [org, captureId],
+      );
       const capture = captures.rows[0];
       if (!capture) throw new ApiError("Capture not found", 404);
-      if (capture.batch_id) throw new ApiError("Capture has already been reviewed and batched", 409);
-      const match = await tx.query<{id:string}>("SELECT id FROM batches WHERE org_id=$1 AND event_id=$2 AND zone_id=$3 AND material=$4 AND status=$5 ORDER BY created_at LIMIT 1 FOR UPDATE", [org, capture.event_id, capture.zone_id, material, "Ready"]);
+      if (capture.batch_id)
+        throw new ApiError(
+          "Capture has already been reviewed and batched",
+          409,
+        );
+      const match = await tx.query<{ id: string }>(
+        "SELECT id FROM batches WHERE org_id=$1 AND event_id=$2 AND zone_id=$3 AND material=$4 AND status=$5 ORDER BY created_at LIMIT 1 FOR UPDATE",
+        [org, capture.event_id, capture.zone_id, material, "Ready"],
+      );
       let batchId = match.rows[0]?.id;
-      if (batchId) await tx.query("UPDATE batches SET weight=weight+$1,updated_at=now(),revision=revision+1 WHERE id=$2", [capture.weight, batchId]);
+      if (batchId)
+        await tx.query(
+          "UPDATE batches SET weight=weight+$1,updated_at=now(),revision=revision+1 WHERE id=$2",
+          [capture.weight, batchId],
+        );
       else {
-        batchId = "SR-" + randomUUID().slice(0,8).toUpperCase();
-        await tx.query("INSERT INTO batches(id,org_id,event_id,zone_id,material,weight,status,notes) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", [batchId,org,capture.event_id,capture.zone_id,material,capture.weight,"Ready","Created following coordinator capture review"]);
+        batchId = "SR-" + randomUUID().slice(0, 8).toUpperCase();
+        await tx.query(
+          "INSERT INTO batches(id,org_id,event_id,zone_id,material,weight,status,notes) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+          [
+            batchId,
+            org,
+            capture.event_id,
+            capture.zone_id,
+            material,
+            capture.weight,
+            "Ready",
+            "Created following coordinator capture review",
+          ],
+        );
       }
-      await tx.query("UPDATE captures SET material=$1,batch_id=$2 WHERE org_id=$3 AND id=$4", [material,batchId,org,captureId]);
-      await audit(batchId,"Capture reviewed",{capture_id:captureId,original_material:capture.material,confirmed_material:material,weight:Number(capture.weight),notes});
-      return {ok:true,capture_id:captureId,batch_id:batchId,reason:"Existing capture confirmed and grouped once. Captured quantity is unchanged."};
+      await tx.query(
+        "UPDATE captures SET material=$1,batch_id=$2 WHERE org_id=$3 AND id=$4",
+        [material, batchId, org, captureId],
+      );
+      await audit(batchId, "Capture reviewed", {
+        capture_id: captureId,
+        original_material: capture.material,
+        confirmed_material: material,
+        weight: Number(capture.weight),
+        notes,
+      });
+      return {
+        ok: true,
+        capture_id: captureId,
+        batch_id: batchId,
+        reason:
+          "Existing capture confirmed and grouped once. Captured quantity is unchanged.",
+      };
     }
     const rows = await tx.query<Batch>(
       "SELECT * FROM batches WHERE org_id=$1 AND id=$2 FOR UPDATE",
@@ -408,7 +529,7 @@ export async function action(
       await audit(id, "Assigned", {
         partner_id: partnerId,
         reason:
-          "Material compatibility and remaining capacity checked. Nearest available straight-line distance heuristic.",
+          "Material compatibility and remaining capacity checked. Any recorded distance is a reference, not road routing.",
         distance_km: p.distance,
       });
     } else if (action === "collect") {
@@ -421,7 +542,7 @@ export async function action(
         claimed_weight: b.weight,
       });
     } else if (action === "receive") {
-      allow(role, ["partner"]);
+      allow(role, ["partner", "admin"]);
       if (b.status !== "Collected")
         throw new ApiError("Receipt requires a collected batch", 409);
       const accepted = Number(input.accepted ?? input.accepted_weight);

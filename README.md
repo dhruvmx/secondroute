@@ -4,11 +4,11 @@ Giving discarded materials another destination.
 
 Repository: [dhruvmx/secondroute](https://github.com/dhruvmx/secondroute). This repository is private.
 
-SecondRoute coordinates event material recovery: capture, confirm, group, assign, collect, receive, verify, and report. Recipient acceptance is distinct from a worker's collection claim. Rejected material is excluded from recovery totals. Fictional records are demonstration data, not real partnerships or measured customer outcomes.
+SecondRoute coordinates event material recovery: capture, confirm, group, assign, collect, receive, verify, and report. Recipient acceptance is distinct from a worker's collection claim. Rejected material is excluded from recovery totals. Visitors can explore clearly identified sample records. Signed-in accounts operate separate workspaces with their own events, zones, partners and material records.
 
 This project targets desktop browsers. Field capture and offline retry are part of the desktop web application.
 
-The header provides Open, Closed, and Hover sidebar modes. Open keeps the full menu visible. Closed keeps an icon rail and gives the page more space. Hover expands the rail when the pointer or keyboard focus enters it, then collapses it when they leave. The mode is saved on this browser. The left menu has its own vertical scrollbar, so settings and role controls remain reachable in short windows.
+The header provides Open, Closed, and Hover sidebar modes. Open keeps the full menu visible. Closed keeps an icon rail and gives the page more space. Hover expands the rail when the pointer or keyboard focus enters it, then collapses it when they leave. The mode is saved on this browser. The left menu has its own vertical scrollbar, so settings and profile controls remain reachable in short windows.
 
 ## Run locally
 
@@ -19,7 +19,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. The local demo uses durable PGlite PostgreSQL on disk. A Docker daemon, paid service account, wallet, or external API key is not required for its core workflow. Keep the server running while trying separate browser sessions. Demo roles are explicitly selected in the interface and enforced by the demo server policy.
+Open http://127.0.0.1:3000. Local email and password accounts use Better Auth and durable PGlite PostgreSQL on disk. No hosted authentication subscription, external database, map token or billing account is needed for the local core workflow. Use the configured origin consistently for sign-in. See [account setup](docs/ACCOUNTS.md) for optional Google sign-in and SMTP email.
 
 ```sh
 npm run typecheck
@@ -29,15 +29,21 @@ npm run build
 npm start
 ```
 
-For the verified production desktop experience, run `npm run build` followed by `npm start`. On Windows, `Start-SecondRoute.ps1` installs missing dependencies, builds when needed, and starts the server. `npm run demo:reset` restores fictional seed records. `npm run test:http` exercises the running server and adds an isolated fictional verification event.
+For the production desktop build, run `npm run build` followed by `npm start`. On Windows, `Start-SecondRoute.ps1` installs missing dependencies, builds when needed, and starts the server. After changing source code, rebuild before restarting.
 
-The exact executed commands and outcomes belong in [verification](docs/VERIFICATION.md). The presence of a command or test source does not mean it has passed.
+`npm run test:http` exercises a running server at `http://127.0.0.1:3001` by default. Set `SECONDROUTE_TEST_URL` to its origin and match the server's `BETTER_AUTH_URL`. Run it against a disposable `SECONDROUTE_DATA_DIR`: it creates test accounts and recovery records. The server refuses account-free writes, including sample reset requests. The local reset script refuses to reset a database containing account memberships.
 
-## Operating modes
+## Accounts and maps
 
-Local demo: fictional event records, local PostgreSQL persistence, explicit role switching, manual classification, and local evidence storage. Reset through the demo settings control. Reset discards demonstration records and must not be used against real operations.
+Visitors see read-only sample data. Email/password registration creates an empty workspace, and session-backed server checks scope operational reads, writes, evidence, exports and assistant context to its membership. Browser role headers do not grant permissions. Each account is the owner of one workspace in this version. Workspace owners record recipient receipt evidence and review it; this is not an independent third-party identity verification system.
 
-Connected: Supabase Auth, organization memberships, Storage policies, Realtime, hosted PostgreSQL, maps, and Gemini require configuration and separate verification. Environment variable names in `.env.example` are configuration references, not a statement that every connected integration is complete. Never enable demo role bypasses on a public connected deployment. Review [limitations](docs/LIMITATIONS.md) before deploying.
+Both profile buttons offer settings and appearance, plus logout for signed-in users. Light, dark and device appearance settings persist in the browser. The notification bell opens recent handoffs in a dismissible popup.
+
+The map uses OpenStreetMap's embedded interactive map with attribution, without a paid API or key. Select Load interactive map to connect to OpenStreetMap. Event and zone coordinates set its focus. Sample locations are explicitly identified. Map availability is subject to the provider's [usage policy](https://operations.osmfoundation.org/policies/tiles/); road routing, geocoding and offline tile downloads are not implemented.
+
+Google OAuth and SMTP adapters are implemented but require the operator's credentials. Unconfigured providers are shown as such in Settings. Email/password accounts work without them; email ownership remains unverified until mail verification or Google sign-in succeeds. No messages are read from users' inboxes.
+
+See [verification](docs/VERIFICATION.md) for executed checks and [limitations](docs/LIMITATIONS.md) for deployment boundaries. This review has not been published to GitHub.
 
 ## Project map
 

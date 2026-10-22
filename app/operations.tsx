@@ -1,5 +1,16 @@
 "use client";
 import Image from "next/image";
+import { RecordNote } from "./record-note";
+import VenueMap from "./venue-map";
+import {
+  AccountProvider,
+  useAccount,
+  ProfileButton,
+  Notifications,
+  Appearance,
+  AccountSettings,
+  ThemeEffect,
+} from "./account-controls";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -7,7 +18,6 @@ import {
   ArrowDownToLine,
   ArrowRight,
   ArrowUpRight,
-  Bell,
   Boxes,
   Camera,
   Check,
@@ -46,7 +56,13 @@ import {
 } from "recharts";
 import type { Batch, State } from "@/lib/types";
 import { useUI, useSidebar, type SidebarMode } from "./ui-store";
-import { enqueue, readQueue, syncQueue, type PendingCapture } from "./offline";
+import {
+  enqueue,
+  readQueue,
+  syncQueue,
+  setQueueWorkspace,
+  type PendingCapture,
+} from "./offline";
 
 const nav = [
   ["Overview", LayoutDashboard],
@@ -85,10 +101,32 @@ function Mark() {
 }
 
 export default function Operations() {
+  return (
+    <AccountProvider>
+      <WorkspaceBoundary />
+    </AccountProvider>
+  );
+}
+function WorkspaceBoundary() {
+  const { account, ready } = useAccount();
+  return ready ? (
+    <Workspace key={account.user?.id || "sample"} />
+  ) : (
+    <div className="map-placeholder">Opening your workspace...</div>
+  );
+}
+function Workspace() {
+  const {
+    account,
+    ready: accountReady,
+    signIn,
+    refresh: refreshAccount,
+  } = useAccount();
+  const [appearance, setAppearance] = useState(false);
   const router = useRouter();
   const [view, setView] = useState("Overview");
   const [state, setState] = useState<State | null>(null);
-  const [event, setEvent] = useState("riverlight");
+  const [event, setEvent] = useState(account.user ? "" : "riverlight");
   const [zone, setZone] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -105,7 +143,13 @@ export default function Operations() {
   const [busy, setBusy] = useState(false);
   const [help, setHelp] = useState(false);
   const { role, setRole } = useUI();
+  useEffect(() => {
+    setRole(account.user ? account.role || "admin" : "coordinator");
+    setQueueWorkspace(account.orgId || "sample");
+  }, [account.user, account.orgId, account.role, setRole]);
+  const cacheKey = "secondroute.state." + (account.user?.id || "sample");
   const load = useCallback(async () => {
+    if (!accountReady) return;
     try {
       const response = await fetch(
         "/api/state" + (event ? "?event=" + encodeURIComponent(event) : ""),
@@ -113,13 +157,21 @@ export default function Operations() {
       );
       const data = await response.json();
       if (!response.ok) throw Error(data.error || "Unable to load operations");
+      if (!event && data.events?.length) {
+        setEvent(data.events[0].id);
+        return;
+      }
+      if (account.user && data.mode === "sample") {
+        await refreshAccount();
+        return;
+      }
       setState(data);
       setOnline(navigator.onLine);
-      localStorage.setItem("secondroute.state.v1", JSON.stringify(data));
+      if (account.user) localStorage.setItem(cacheKey, JSON.stringify(data));
       setError("");
     } catch {
       setOnline(false);
-      const cached = localStorage.getItem("secondroute.state.v1");
+      const cached = account.user ? localStorage.getItem(cacheKey) : null;
       if (cached) {
         try {
           setState(JSON.parse(cached));
@@ -129,7 +181,7 @@ export default function Operations() {
         "Connection unavailable. Showing last synchronized records. New captures stay queued.",
       );
     }
-  }, [event, role]);
+  }, [event, role, accountReady, account.user, cacheKey, refreshAccount]);
   useEffect(() => {
     const initial = setTimeout(() => void load(), 0);
     const timer = setInterval(() => {
@@ -166,6 +218,10 @@ export default function Operations() {
     return () => clearTimeout(timer);
   }, [notice]);
   const action = async (payload: Record<string, unknown>) => {
+    if (!account.user) {
+      signIn();
+      return null;
+    }
     setBusy(true);
     setError("");
     try {
@@ -260,8 +316,12 @@ export default function Operations() {
         <div className="workspace">
           <span className="workspace-icon">R</span>
           <div>
-            <strong>Riverlight Collective</strong>
-            <small>Demonstration workspace</small>
+            <strong>{account.workspace || "SecondRoute"}</strong>
+            <small>
+              {account.user
+                ? "Your recovery workspace"
+                : "Explore sample records"}
+            </small>
           </div>
           <ChevronDown size={15} />
         </div>
@@ -306,26 +366,14 @@ export default function Operations() {
           </button>
           <button onClick={() => setHelp(true)}>
             <CircleHelp size={19} />
-            Help & demo guide
+            Help & guide
             <ArrowUpRight size={15} />
           </button>
-          <div className="profile">
-            <span className="avatar">AK</span>
-            <div>
-              <strong>Alex Kim</strong>
-              <small>Demo {role}</small>
-            </div>
-            <select
-              aria-label="Demo role"
-              value={role}
-              onChange={(e) => setRole(e.target.value as typeof role)}
-            >
-              <option value="coordinator">Coordinator</option>
-              <option value="worker">Field worker</option>
-              <option value="partner">Recovery partner</option>
-              <option value="admin">Administrator</option>
-            </select>
-          </div>
+          <ProfileButton
+            sidebar
+            onSettings={() => go("Settings")}
+            onAppearance={() => setAppearance(true)}
+          />
         </div>
       </aside>
       <main>
@@ -369,27 +417,58 @@ export default function Operations() {
                 </button>
               ))}
             </div>
-            <span className="demo-pill">
-              <span />
-              DEMO WORKSPACE
-            </span>
-            <button
-              className="icon-button"
-              aria-label="View activity"
-              onClick={() => {
-                go("Overview");
-                document
-                  .getElementById("activity")
-                  ?.scrollIntoView({ behavior: "smooth" });
+            {account.user ? (
+              <span className="workspace-pill">
+                <span />
+                YOUR WORKSPACE
+              </span>
+            ) : (
+              <button className="primary account-cta" onClick={signIn}>
+                Create account
+              </button>
+            )}
+            <Notifications
+              custody={state?.custody || []}
+              onBatch={(id) => {
+                const b = state?.batches.find((b) => b.id === id);
+                if (b) setSelected(b);
               }}
-            >
-              <Bell size={19} />
-              <span className="notification-dot" />
-            </button>
-            <span className="small-avatar">AK</span>
+            />
+            <ProfileButton
+              onSettings={() => go("Settings")}
+              onAppearance={() => setAppearance(true)}
+            />
           </div>
         </header>
         <div className="content">
+          <ThemeEffect />
+          {appearance && <Appearance onClose={() => setAppearance(false)} />}
+          {!account.user && (
+            <div className="sample-banner">
+              <span>
+                Explore sample recovery records. Create an account to manage
+                your own materials.
+              </span>
+              <button onClick={signIn}>
+                Get started <ArrowRight size={15} />
+              </button>
+            </div>
+          )}
+          {account.user && state?.events.length === 0 && (
+            <div className="info-strip">
+              <Leaf />
+              <div>
+                <strong>Your first second route starts here.</strong>
+                <p>
+                  Create an event, add recovery zones and partners, then capture
+                  your first material.
+                </p>
+                <button className="primary" onClick={() => setModal("event")}>
+                  Create your first event
+                </button>
+              </div>
+            </div>
+          )}
           <div className="page-heading">
             <div>
               <div className="eyebrow">MATERIAL RECOVERY OPERATIONS</div>
@@ -416,7 +495,16 @@ export default function Operations() {
                               : "Organize recovery around the places where materials are found."}
               </p>
             </div>
-            <button className="primary" onClick={() => setModal("capture")}>
+            <button
+              className="primary"
+              disabled={!!account.user && !zones.length}
+              title={
+                account.user && !zones.length
+                  ? "Create an event and add a recovery zone first"
+                  : undefined
+              }
+              onClick={() => (account.user ? setModal("capture") : signIn())}
+            >
               <Plus size={18} />
               Capture material
             </button>
@@ -433,8 +521,8 @@ export default function Operations() {
                 setZone("");
               }}
             >
-              <option value="">
-                {currentEvent?.name || "Loading event..."}
+              <option value="" disabled>
+                {state?.events.length ? "Select an event" : "No events yet"}
               </option>
               {state?.events.map((e) => (
                 <option key={e.id} value={e.id}>
@@ -444,11 +532,11 @@ export default function Operations() {
             </select>
             <span className="event-live">
               <span />
-              Recovery in progress
+              {currentEvent?.status || "Create your first event"}
             </span>
             <div className="event-meta">
               <MapPin size={14} />
-              {currentEvent?.location || "Fictional demonstration event"}
+              {currentEvent?.location || "Location not set"}
               <span className="divider" />
               <span>
                 {currentEvent?.date
@@ -457,7 +545,7 @@ export default function Operations() {
                       month: "short",
                       year: "numeric",
                     })
-                  : "22 Oct 2026"}
+                  : "Date not set"}
               </span>
             </div>
             <span className={`sync ${online ? "" : "offline"}`}>
@@ -465,7 +553,7 @@ export default function Operations() {
               {online
                 ? queue.length
                   ? `${queue.length} pending sync`
-                  : "Connected to local demo"
+                  : "Workspace connected"
                 : "Offline capture available"}
             </span>
           </div>
@@ -639,6 +727,7 @@ export default function Operations() {
                         </button>
                       </div>
                       <VenueMap
+                        event={currentEvent}
                         captures={visibleCaptures}
                         zones={zones}
                         batches={batches}
@@ -647,19 +736,10 @@ export default function Operations() {
                       />
                       <div className="map-footer">
                         <span>
-                          <i className="legend-dot green" />
-                          Verified
-                        </span>
-                        <span>
-                          <i className="legend-dot orange" />
-                          Awaiting pickup
-                        </span>
-                        <span>
-                          <i className="legend-dot gray" />
-                          In progress
+                          Select a zone to focus its recorded location.
                         </span>
                         <span className="map-disclaimer">
-                          Illustrative venue plan
+                          Street map by OpenStreetMap
                         </span>
                       </div>
                     </section>
@@ -765,7 +845,14 @@ export default function Operations() {
                               <Check size={13} />
                             </span>
                             <div>
-                              <strong>{c.action.replaceAll("_", " ")}</strong>
+                              <strong>
+                                {c.action
+                                  .replaceAll("_", " ")
+                                  .replace(
+                                    /Seeded demonstration record/gi,
+                                    "Sample record",
+                                  )}
+                              </strong>
                               <small>
                                 {c.batch_id.slice(0, 12)} · {c.role}
                               </small>
@@ -927,7 +1014,7 @@ export default function Operations() {
                     <div className="panel-heading">
                       <div>
                         <h2>Recovery partners</h2>
-                        <p>Fictional partners for this demo</p>
+                        <p>Recovery destinations and accepted materials</p>
                       </div>
                       <Users size={19} />
                     </div>
@@ -941,7 +1028,11 @@ export default function Operations() {
                           <small>{p.materials.join(" · ")}</small>
                         </div>
                         <span>{format(p.capacity)} kg capacity</span>
-                        <span>{p.distance} km straight-line</span>
+                        <span>
+                          {p.distance > 0
+                            ? `${p.distance} km straight-line`
+                            : "Distance not recorded"}
+                        </span>
                         <Badge
                           status={p.available ? "Available" : "Unavailable"}
                         />
@@ -1090,7 +1181,9 @@ export default function Operations() {
                     <h2>Events</h2>
                     <button
                       className="secondary"
-                      onClick={() => setModal("event")}
+                      onClick={() =>
+                        account.user ? setModal("event") : signIn()
+                      }
                     >
                       <Plus size={16} />
                       New event
@@ -1107,7 +1200,7 @@ export default function Operations() {
                         }}
                       >
                         <span className="eyebrow">
-                          FICTIONAL DEMONSTRATION EVENT
+                          {account.user ? "YOUR EVENT" : "SAMPLE EVENT"}
                         </span>
                         <h2>{e.name}</h2>
                         <p>
@@ -1123,7 +1216,9 @@ export default function Operations() {
                     <h2>Recovery zones</h2>
                     <button
                       className="secondary"
-                      onClick={() => setModal("zone")}
+                      onClick={() =>
+                        account.user ? setModal("zone") : signIn()
+                      }
                     >
                       <Plus size={16} />
                       Add zone
@@ -1131,6 +1226,7 @@ export default function Operations() {
                   </div>
                   <section className="panel">
                     <VenueMap
+                      event={currentEvent}
                       captures={visibleCaptures}
                       zones={zones}
                       batches={batches}
@@ -1138,6 +1234,54 @@ export default function Operations() {
                       selectedZone={zone}
                     />
                   </section>
+                  {account.user && currentEvent && (
+                    <form
+                      className="panel location-form"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const f = new FormData(e.currentTarget);
+                        await action({
+                          action: "setLocation",
+                          event_id: currentEvent.id,
+                          latitude: f.get("latitude"),
+                          longitude: f.get("longitude"),
+                        });
+                      }}
+                    >
+                      <h3>Event map location</h3>
+                      <div className="form-row">
+                        <label>
+                          Latitude
+                          <input
+                            key={currentEvent.id + "lat"}
+                            name="latitude"
+                            type="number"
+                            min="-90"
+                            max="90"
+                            step="any"
+                            defaultValue={currentEvent.latitude ?? ""}
+                            required
+                          />
+                        </label>
+                        <label>
+                          Longitude
+                          <input
+                            key={currentEvent.id + "lon"}
+                            name="longitude"
+                            type="number"
+                            min="-180"
+                            max="180"
+                            step="any"
+                            defaultValue={currentEvent.longitude ?? ""}
+                            required
+                          />
+                        </label>
+                        <button className="secondary" disabled={busy}>
+                          Save map location
+                        </button>
+                      </div>
+                    </form>
+                  )}
                   <div className="zone-grid">
                     {zones.map((z) => (
                       <button
@@ -1158,70 +1302,58 @@ export default function Operations() {
               )}
               {view === "Settings" && (
                 <section className="panel settings-panel">
-                  <h2>Operating mode</h2>
-                  <div className="info-strip">
-                    <ShieldCheck size={22} />
-                    <div>
-                      <strong>Local demonstration</strong>
-                      <p>
-                        Durable embedded PostgreSQL. All events and partners are
-                        fictional. Role switching is available only in demo
-                        mode.
-                      </p>
-                    </div>
-                  </div>
-                  {[
-                    ["Database", "Local PGlite PostgreSQL", "Configured"],
-                    [
-                      "Classification",
-                      "Manual confirmation. No trained model installed.",
-                      "Unavailable",
-                    ],
-                    [
-                      "Supabase Auth, Storage & Realtime",
-                      "Connected mode requires configuration and verification.",
-                      "Not configured",
-                    ],
-                    [
-                      "Mapbox",
-                      "Venue plan shown. Geographic tiles require a token.",
-                      "Not configured",
-                    ],
-                    [
-                      "Gemini",
-                      "Optional server adapter. No credentials configured.",
-                      "Not configured",
-                    ],
-                    [
-                      "Impact factors",
-                      "No compatible environmental factors configured.",
-                      "Unavailable",
-                    ],
-                  ].map(([name, detail, value]) => (
-                    <div className="setting-row" key={name}>
-                      <div>
-                        <strong>{name}</strong>
-                        <p>{detail}</p>
-                      </div>
-                      <span className="badge">{value}</span>
-                    </div>
-                  ))}
-                  <div className="reset-area">
-                    <h3>Reset demonstration data</h3>
-                    <p>
-                      Replaces local operational records with fictional seed
-                      data. Export any records you need first.
-                    </p>
-                    <button
-                      className="danger"
-                      onClick={() => {
-                        if (window.confirm("Reset all local demo records?"))
-                          void action({ action: "reset" });
+                  <AccountSettings onAppearance={() => setAppearance(true)} />
+                  {account.user && (
+                    <form
+                      className="partner-form"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const form = e.currentTarget;
+                        const data = new FormData(form);
+                        const result = await action({
+                          action: "createPartner",
+                          name: data.get("name"),
+                          capacity: data.get("capacity"),
+                          materials: data.getAll("materials"),
+                        });
+                        if (result) form.reset();
                       }}
                     >
-                      Reset demo records
-                    </button>
-                  </div>
+                      <h3>Add a recovery partner</h3>
+                      <label>
+                        Partner name
+                        <input name="name" maxLength={100} required />
+                      </label>
+                      <label>
+                        Capacity in kilograms
+                        <input
+                          name="capacity"
+                          type="number"
+                          min="0.1"
+                          step="0.1"
+                          required
+                        />
+                      </label>
+                      <fieldset>
+                        <legend>Accepted materials</legend>
+                        {materials
+                          .filter((m) => m !== "Unknown")
+                          .map((m) => (
+                            <label className="checkbox" key={m}>
+                              <input
+                                type="checkbox"
+                                name="materials"
+                                value={m}
+                              />
+                              {m}
+                            </label>
+                          ))}
+                      </fieldset>
+                      <button className="primary" disabled={busy}>
+                        Add partner
+                      </button>
+                    </form>
+                  )}
                 </section>
               )}
               <footer className="page-footer">
@@ -1230,9 +1362,7 @@ export default function Operations() {
                   SecondRoute{" "}
                   <span>Giving discarded materials another destination.</span>
                 </span>
-                <small>
-                  Fictional demonstration data · Quantities in kilograms
-                </small>
+                <small>Quantities in kilograms</small>
               </footer>
             </>
           )}
@@ -1240,6 +1370,7 @@ export default function Operations() {
       </main>
       {modal === "capture" && (
         <CaptureDialog
+          initialEventId={currentEvent?.id || ""}
           state={state}
           onClose={() => setModal(null)}
           onDone={() => {
@@ -1264,10 +1395,13 @@ export default function Operations() {
                 location: f.get("location"),
                 date: f.get("date"),
                 eventId: event || currentEvent?.id,
-                x: 50,
-                y: 50,
+                latitude: f.get("latitude"),
+                longitude: f.get("longitude"),
               });
-              if (result) setModal(null);
+              if (result) {
+                setModal(null);
+                if (modal === "event") setEvent(String(result.id));
+              }
             }}
           >
             <label>
@@ -1286,9 +1420,42 @@ export default function Operations() {
                 </label>
               </>
             )}
+            <p className="form-hint">
+              Coordinates place this {modal} on OpenStreetMap. Leave both blank
+              if the location is not available yet.
+            </p>
+            <div className="form-row">
+              <label>
+                Latitude
+                <input
+                  name="latitude"
+                  type="number"
+                  step="any"
+                  min="-90"
+                  max="90"
+                  placeholder="12.9716"
+                />
+              </label>
+              <label>
+                Longitude
+                <input
+                  name="longitude"
+                  type="number"
+                  step="any"
+                  min="-180"
+                  max="180"
+                  placeholder="77.5946"
+                />
+              </label>
+            </div>
             <button className="primary" disabled={busy}>
               Save {modal}
             </button>
+            {error && (
+              <p className="error-copy" role="alert">
+                {error}
+              </p>
+            )}
           </form>
         </Dialog>
       )}
@@ -1309,26 +1476,20 @@ export default function Operations() {
           onClose={() => setHelp(false)}
         >
           <p>
-            This workspace uses fictional demo records and durable local
-            PostgreSQL.
+            Explore sample records without an account. Sign in to manage your
+            own events, materials and partners.
           </p>
-          <ol className="demo-steps">
+          <ol className="workflow-steps">
+            <li>Capture Cardboard with a weight and zone.</li>
+            <li>Open the batch and assign a compatible partner.</li>
+            <li>Confirm collection after pickup.</li>
             <li>
-              Switch to Field worker and capture Cardboard with a weight and
-              zone.
-            </li>
-            <li>
-              Switch to Coordinator. Open the batch and assign a compatible
-              partner.
-            </li>
-            <li>As Field worker, confirm collection.</li>
-            <li>
-              As Recovery partner, record accepted and rejected kg with
+              Record the recipient&apos;s accepted and rejected quantities with
               evidence.
             </li>
             <li>
-              As Coordinator, review the discrepancy, verify the receipt, and
-              open the signed passport.
+              Review the discrepancy, verify the receipt, and open the signed
+              passport.
             </li>
             <li>Export the report and compare accepted quantities.</li>
           </ol>
@@ -1392,173 +1553,6 @@ function Metric({
         {note}
       </div>
     </section>
-  );
-}
-function VenueMap({
-  zones,
-  batches,
-  captures,
-  onZone,
-  selectedZone,
-}: {
-  zones: State["zones"];
-  batches: Batch[];
-  captures?: State["captures"];
-  onZone: (s: string) => void;
-  selectedZone: string;
-}) {
-  return (
-    <div className="venue-map">
-      <svg
-        className="venue-svg"
-        viewBox="0 0 800 380"
-        preserveAspectRatio="xMidYMid slice"
-        aria-hidden="true"
-      >
-        <defs>
-          <pattern
-            id="mapgrid"
-            width="24"
-            height="24"
-            patternUnits="userSpaceOnUse"
-          >
-            <path
-              d="M 24 0 L 0 0 0 24"
-              fill="none"
-              stroke="#e5e7df"
-              strokeWidth=".7"
-            />
-          </pattern>
-          <pattern
-            id="fieldlines"
-            width="9"
-            height="9"
-            patternUnits="userSpaceOnUse"
-          >
-            <path d="M0 9L9 0" stroke="#dce2d3" strokeWidth="1" />
-          </pattern>
-        </defs>
-        <rect width="800" height="380" fill="#f1f2eb" />
-        <rect width="800" height="380" fill="url(#mapgrid)" />
-        <path
-          d="M-20 100C180 35 265 120 410 83S650 15 840 66"
-          stroke="#d1dfd9"
-          strokeWidth="34"
-          fill="none"
-        />
-        <path
-          d="M-20 100C180 35 265 120 410 83S650 15 840 66"
-          stroke="#e1ebe5"
-          strokeWidth="25"
-          fill="none"
-        />
-        <path
-          d="M-20 291L210 291L308 216L560 216L685 305L820 305"
-          stroke="#dedfd6"
-          strokeWidth="29"
-          fill="none"
-        />
-        <path
-          d="M-20 291L210 291L308 216L560 216L685 305L820 305"
-          stroke="#fffefa"
-          strokeWidth="22"
-          fill="none"
-        />
-        <path
-          d="M212 380L212 127L300 127L300 30M560 380V121H730"
-          stroke="#fffefa"
-          strokeWidth="14"
-          fill="none"
-        />
-        <rect
-          x="328"
-          y="124"
-          width="178"
-          height="137"
-          rx="45"
-          fill="#dde5d1"
-          stroke="#d0d9c5"
-        />
-        <rect
-          x="340"
-          y="136"
-          width="154"
-          height="113"
-          rx="36"
-          fill="url(#fieldlines)"
-        />
-        <rect x="378" y="154" width="76" height="72" rx="4" fill="#cbd6bd" />
-        <text
-          x="416"
-          y="194"
-          textAnchor="middle"
-          fill="#8c9980"
-          fontSize="10"
-          letterSpacing="2"
-        >
-          MAIN LAWN
-        </text>
-        <g fill="#e3e3d9" stroke="#d4d5c9">
-          <rect x="76" y="164" width="79" height="57" rx="5" />
-          <rect x="93" y="232" width="62" height="30" rx="3" />
-          <rect x="622" y="129" width="82" height="51" rx="4" />
-          <rect x="625" y="194" width="55" height="39" rx="3" />
-          <rect x="330" y="300" width="52" height="43" rx="3" />
-          <rect x="392" y="300" width="52" height="43" rx="3" />
-          <rect x="454" y="300" width="52" height="43" rx="3" />
-        </g>
-        <g fill="#d4dfc8">
-          {[40, 67, 740, 768, 27, 775, 720, 53, 715, 750].map((x, i) => (
-            <circle
-              key={i}
-              cx={x}
-              cy={120 + ((i * 41) % 220)}
-              r={11 + (i % 4)}
-            />
-          ))}
-        </g>
-        <path
-          d="M146 199L213 199L213 290L470 290L563 218L670 167"
-          fill="none"
-          stroke="#d57a42"
-          strokeDasharray="5 5"
-          strokeWidth="2"
-        />
-        <text x="61" y="324" fill="#9a9e90" fontSize="10" letterSpacing="1.6">
-          RIVERLIGHT PARK
-        </text>
-        <text x="599" y="354" fill="#9a9e90" fontSize="9" letterSpacing="1.4">
-          SOUTH ENTRANCE
-        </text>
-      </svg>
-      {zones.map((z, i) => {
-        const total = (captures || batches)
-          .filter((b) => b.zone_id === z.id)
-          .reduce((s, b) => s + b.weight, 0);
-        return (
-          <button
-            key={z.id}
-            className={`map-pin ${selectedZone === z.id ? "selected" : ""} pin-${i % 3}`}
-            style={{ left: `${z.x}%`, top: `${z.y}%` }}
-            onClick={() => onZone(selectedZone === z.id ? "" : z.id)}
-          >
-            <span className="pin-dot">
-              <Boxes size={14} />
-            </span>
-            <span>
-              <strong>{z.name}</strong>
-              <small>{format(total)} kg captured</small>
-            </span>
-          </button>
-        );
-      })}
-      <div className="map-compass">
-        N<span>↑</span>
-      </div>
-      <div className="map-scale">
-        0 ━━━ 50 m <small>schematic</small>
-      </div>
-    </div>
   );
 }
 function MaterialChart({
@@ -1813,19 +1807,42 @@ function Dialog({
   );
 }
 function CaptureDialog({
+  initialEventId,
   state,
   onClose,
   onDone,
 }: {
+  initialEventId: string;
   state: State | null;
   onClose: () => void;
   onDone: () => void;
 }) {
+  const { account } = useAccount();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState("");
   const [evidence, setEvidence] = useState("");
-  const [eventId, setEventId] = useState("riverlight");
+  const [eventId, setEventId] = useState(initialEventId);
+  const [captureZones, setCaptureZones] = useState(state?.zones || []);
+  const cachedZoneEvent = state?.zones[0]?.event_id;
+  useEffect(() => {
+    if (!eventId) return;
+    const controller = new AbortController();
+    void fetch("/api/state?event=" + encodeURIComponent(eventId), {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw Error(data.error || "Unable to load zones");
+        setCaptureZones(data.zones);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted && cachedZoneEvent !== eventId)
+          setError("Connect to load recovery zones for this event.");
+      });
+    return () => controller.abort();
+  }, [eventId, cachedZoneEvent]);
   const [material, setMaterial] = useState("Cardboard");
   const key = useRef("");
   useEffect(() => {
@@ -1848,6 +1865,7 @@ function CaptureDialog({
           const form = new FormData(e.currentTarget);
           const payload: PendingCapture = {
             action: "capture",
+            workspace_id: account.orgId,
             idempotencyKey: key.current,
             eventId,
             zoneId: String(form.get("zoneId")),
@@ -1983,7 +2001,7 @@ function CaptureDialog({
           <label>
             Source zone
             <select name="zoneId" required>
-              {state?.zones
+              {captureZones
                 .filter((z) => z.event_id === eventId)
                 .map((z) => (
                   <option key={z.id} value={z.id}>
@@ -2096,7 +2114,11 @@ function BatchDialog({
         {state.partners.find((p) => p.id === b.partner_id)?.name ||
           "Destination pending"}
       </p>
-      {b.notes && <p>{b.notes}</p>}
+      {b.notes && (
+        <p>
+          <RecordNote text={b.notes} />
+        </p>
+      )}
       <div className="lifecycle">
         {["Ready", "Assigned", "Collected", "Received", "Verified"].map(
           (s, i) => (
@@ -2157,7 +2179,10 @@ function BatchDialog({
                     p.capacity < b.weight
                   }
                 >
-                  {p.name} · {p.capacity} kg · {p.distance} km
+                  {p.name} · {p.capacity} kg ·{" "}
+                  {p.distance > 0
+                    ? `${p.distance} km`
+                    : "Distance not recorded"}
                   {!p.materials.includes(b.material) ? " · incompatible" : ""}
                 </option>
               ))}
@@ -2278,7 +2303,9 @@ function BatchDialog({
           </label>
           <button
             className="primary"
-            disabled={busy || role !== "partner" || !receiptFile}
+            disabled={
+              busy || !["partner", "admin"].includes(role) || !receiptFile
+            }
           >
             Save measured receipt
             <Check size={16} />
@@ -2299,7 +2326,7 @@ function BatchDialog({
           <p>
             Evidence:{" "}
             {b.evidence?.startsWith("demo-") ? (
-              "Fictional seeded attestation"
+              "Sample receipt record"
             ) : (
               <a
                 className="text-button"
@@ -2390,20 +2417,38 @@ function BatchDialog({
                 <Check size={12} />
               </span>
               <div>
-                <strong>{c.action.replaceAll("_", " ")}</strong>
+                <strong>
+                  {c.action
+                    .replaceAll("_", " ")
+                    .replace(/Seeded demonstration record/gi, "Sample record")}
+                </strong>
                 <small>
                   {c.role} · {new Date(c.created_at).toLocaleString()}
                 </small>
                 {Object.keys(c.details || {}).length > 0 && (
-                  <small>{JSON.stringify(c.details)}</small>
+                  <small>
+                    {Object.entries(c.details)
+                      .filter(
+                        ([k, v]) =>
+                          !k.endsWith("_id") &&
+                          typeof v !== "object" &&
+                          k !== "fictional" &&
+                          k !== "sample",
+                      )
+                      .map(
+                        ([k, v]) =>
+                          `${k.replaceAll("_", " ")}: ${String(v).startsWith("http") ? "Linked record" : String(v)}`,
+                      )
+                      .join(" · ")}
+                  </small>
                 )}
               </div>
             </div>
           ))}
       </div>
       <p className="form-hint">
-        Current demo role: {role}. Change your role in the workspace menu for
-        the next handoff.
+        Your workspace role: {role}. Each handoff is recorded in the custody
+        history.
       </p>
     </Dialog>
   );

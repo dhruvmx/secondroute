@@ -8,5 +8,5 @@ if (-not (Test-Path -LiteralPath '.next/BUILD_ID')) {
     npm.cmd run build
     if ($LASTEXITCODE -ne 0) { throw 'Production build failed' }
 }
-Write-Host 'Open http://localhost:3000 for SecondRoute.'
+Write-Host 'Open http://127.0.0.1:3000 for SecondRoute.'
 npm.cmd start

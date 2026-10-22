@@ -1,19 +1,13 @@
-# Deployment
+# Running and deployment
 
-The supported credential-free target is a desktop browser served by a local Node process with durable disk. Start with `npm install`, run the checks in VERIFICATION.md, then `npm run build` and `npm start`. Use the development server for the local demonstration where documented.
+The supported review target is a desktop browser connected to one Node.js server with persistent local PGlite storage. Run `npm run build` and then `npm start`. The normal origin is `http://127.0.0.1:3000`, matching `BETTER_AUTH_URL`. No hosting subscription, paid maps API or hosted authentication service was provisioned.
 
-Do not deploy a demo role-switching instance with private real-world records. Demo headers are intentionally user-selectable and provide no identity assurance. A public URL is not implied by a successful local build.
+For optional Google sign-in and outgoing mail, follow ACCOUNTS.md. Neither requires placing secrets in client code. Provider credentials, sender limits and live delivery must be verified by the operator. No provider credentials were supplied during this review.
 
-## Connected production prerequisites
+Before an internet deployment, configure HTTPS and the exact public `BETTER_AUTH_URL`, keep the auth secret stable, persist the database, uploads and signing key, and use one application process per PGlite directory. Back up private data separately from source. A scale-out deployment needs a shared production database and deliberate storage adaptation. Public source publication does not deploy the server or publish its private runtime files.
 
-1. Provision PostgreSQL and apply reviewed migrations. Replace local PGlite with a supported multi-instance database adapter before scaling.
-2. Provision Supabase Auth and require verified JWTs on server routes. Resolve organization and partner membership on the server. Deny demo-role headers in connected mode.
-3. Enable and test row-level policies for every operational table. Use private Storage buckets and short-lived evidence access URLs. Never expose service-role credentials to browser bundles.
-4. Configure authenticated Realtime subscriptions backed by database records. Test reconnect and multiple sessions. Do not publish operational data on public ntfy topics.
-5. Keep signing keys in a deployment secret manager or protected persistent storage. Publish only public verification keys. Establish key rotation, backup, revocation and supersession procedures.
-6. Configure optional Mapbox and Gemini credentials. Verify missing-key, timeout, malformed-output and rate-limit states. Mapbox tokens need appropriate scope restrictions.
-7. Run integration and browser tests against the deployed target. Verify that reset and demo role switching are unavailable in connected production.
+The public APIs do not accept role headers as authority. Visitors see read-only sample data; private operations resolve cookie sessions and membership. Published passports are public only after owner issuance. Review the current account ownership, email verification and recipient identity boundaries in LIMITATIONS.md before accepting real operations.
 
-Cloudflare Worker hosting does not run an ordinary Next.js Node filesystem server unchanged. The local persistence and signing implementation must not be uploaded as if it were a compatible durable Worker backend. Sites hosting requires a deliberate runtime/storage adaptation or a separately secured backend. Record any actual deployment URL and status in VERIFICATION.md.
+OpenStreetMap is loaded directly by the browser with attribution. It needs no map API key and follows the provider's availability and usage policies. There are no offline map downloads, geocoding or route optimization claims.
 
-The hackathon submission is a separate action. No Devpost publication is authorized by creating this draft package.
+Cloudflare Worker hosting cannot run this Node filesystem server unchanged. Sites hosting requires a compatible backend and storage adaptation. No public hosted deployment or Devpost submission was made. The current changes are held locally until the user's GitHub publication approval.
