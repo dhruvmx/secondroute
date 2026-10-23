@@ -75,4 +75,14 @@ Google OAuth and SMTP adapters are implemented and described in ACCOUNTS.md. No 
 
 The supported runtime remains one persistent Node.js server with PGlite. Public internet hosting, scale-out storage and production infrastructure security have not been verified. Each account owns one workspace; team invitations and independently authenticated partner identities are not implemented. Classification is manual. Gemini remains an optional credentialed adapter. No trained classifier, blockchain anchoring, carbon credit issuance or environmental methodology claim is made. Published passports are participant attestations over recorded evidence, not independent proof of physical delivery.
 
-There is no public hosted deployment. The earlier desktop source exists in the private GitHub repository. This review is local and awaits explicit publication approval. No Devpost submission was made.
+There is no public hosted deployment. The earlier desktop source exists in the private GitHub repository. The reviewed source was published to GitHub after explicit approval. No Devpost submission was made.
+
+## Local availability investigation, 23 October 2026
+
+The reported address was `http://127.0.0.1:3000`. No process was listening on port 3000, and both account and state requests failed to connect. The cached browser shell could still appear, but the API server was unavailable. The earlier GitHub workflow completed successfully; this was a local runtime availability failure.
+
+The server was restored with the previous data-directory setting. Anonymous state returned HTTP 200 with two sample events, six batches and 572 kg captured. Account HTTP integration checks passed for registration, login/logout, profile changes, recovery records and workspace isolation. No existing account or material record was reset. Local startup configuration is excluded from GitHub.
+
+The follow-up adds a double-click Windows background launcher, a database/account readiness endpoint, explicit local-versus-hosted instructions, request timeouts, actionable connection messages and cached sample viewing. Type checking, lint, four automated tests, the production build and production HTTP account checks passed. The launcher started a background process, returned only after account/database readiness, and reused the same server on a second invocation.
+
+Browser checks confirmed all six sample batches after reloading. Stopping the managed server preserved the cached sample view and made account creation explain how to run the launcher. Restarting through the launcher allowed the same form to complete. The test profile then logged out and signed back in through the interface successfully. The final browser view returned to the original six sample batches. No existing profile password was requested or changed.

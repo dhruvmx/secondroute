@@ -2,7 +2,7 @@
 
 Giving discarded materials another destination.
 
-Repository: [dhruvmx/secondroute](https://github.com/dhruvmx/secondroute). This repository is private.
+Repository: [dhruvmx/secondroute](https://github.com/dhruvmx/secondroute).
 
 SecondRoute coordinates event material recovery: capture, confirm, group, assign, collect, receive, verify, and report. Recipient acceptance is distinct from a worker's collection claim. Rejected material is excluded from recovery totals. Visitors can explore clearly identified sample records. Signed-in accounts operate separate workspaces with their own events, zones, partners and material records.
 
@@ -10,7 +10,17 @@ This project targets desktop browsers. Field capture and offline retry are part 
 
 The header provides Open, Closed, and Hover sidebar modes. Open keeps the full menu visible. Closed keeps an icon rail and gives the page more space. Hover expands the rail when the pointer or keyboard focus enters it, then collapses it when they leave. The mode is saved on this browser. The left menu has its own vertical scrollbar, so settings and profile controls remain reachable in short windows.
 
-## Run locally
+## Start the desktop site
+
+`http://127.0.0.1:3000` is a local address on your own computer. It is not a hosted website, and uploading source to GitHub does not keep that server running. There is currently no public hosted app URL.
+
+On Windows, install Node.js 22 or later, download or clone this repository, and double-click **Start-SecondRoute.cmd** in the project folder. The launcher installs dependencies when missing, builds when needed, starts a background server, checks database and sign-in readiness, and opens your browser. Keep your computer on. After restarting the computer, open the launcher again. You can close the launcher window after it reports ready.
+
+The address will load records and complete sign-in only while that server is available. If you see a cached page but records or sign-in fail, run the launcher again. Previously loaded sample records and account drafts can remain visible offline, but signing in needs the running server. Do not reset or delete your data to fix a stopped server.
+
+Accounts and records belong to the installation's data directory. Keep `.env.local` and its `SECONDROUTE_DATA_DIR` setting consistent when restarting. Copying only the source does not copy accounts or uploaded evidence.
+
+## Run from a terminal
 
 Requires Node.js 22 or later and npm. From this directory:
 
@@ -29,7 +39,7 @@ npm run build
 npm start
 ```
 
-For the production desktop build, run `npm run build` followed by `npm start`. On Windows, `Start-SecondRoute.ps1` installs missing dependencies, builds when needed, and starts the server. After changing source code, rebuild before restarting.
+For the production desktop build, run `npm run build` followed by `npm start`. On Windows, `Start-SecondRoute.cmd` or `Start-SecondRoute.ps1` runs the background launcher and checks readiness before opening the browser. After changing source code, rebuild before restarting.
 
 `npm run test:http` exercises a running server at `http://127.0.0.1:3001` by default. Set `SECONDROUTE_TEST_URL` to its origin and match the server's `BETTER_AUTH_URL`. Run it against a disposable `SECONDROUTE_DATA_DIR`: it creates test accounts and recovery records. The server refuses account-free writes, including sample reset requests. The local reset script refuses to reset a database containing account memberships.
 
@@ -43,7 +53,7 @@ The map uses OpenStreetMap's embedded interactive map with attribution, without 
 
 Google OAuth and SMTP adapters are implemented but require the operator's credentials. Unconfigured providers are shown as such in Settings. Email/password accounts work without them; email ownership remains unverified until mail verification or Google sign-in succeeds. No messages are read from users' inboxes.
 
-See [verification](docs/VERIFICATION.md) for executed checks and [limitations](docs/LIMITATIONS.md) for deployment boundaries. This review has not been published to GitHub.
+See [verification](docs/VERIFICATION.md) for executed checks and [limitations](docs/LIMITATIONS.md) for deployment boundaries. Source publication and public website hosting are separate.
 
 ## Project map
 

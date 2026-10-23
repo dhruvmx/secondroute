@@ -11,6 +11,7 @@ import {
 } from "react";
 import { Bell, LogOut, Moon, Settings2, UserRound, X } from "lucide-react";
 import type { State, Role } from "@/lib/types";
+import { requestJSON } from "@/lib/connection";
 
 type Account = {
   role?: Role;
@@ -89,11 +90,13 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     [open, setOpen] = useState(false);
   const refresh = useCallback(async () => {
     try {
-      const r = await fetch("/api/account", { cache: "no-store" });
-      if (!r.ok) throw Error("Account service unavailable");
-      const data = await r.json();
+      const data = await requestJSON<Account>("/api/account", {
+        cache: "no-store",
+      });
       setAccount(data);
-      localStorage.setItem("secondroute.account.v1", JSON.stringify(data));
+      try {
+        localStorage.setItem("secondroute.account.v1", JSON.stringify(data));
+      } catch {}
     } catch (error) {
       // Cached identity only unlocks local drafts. Every server operation still checks its cookie session.
       try {
@@ -119,15 +122,11 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   );
 }
 async function authRequest(path: string, body: Record<string, unknown>) {
-  const r = await fetch("/api/auth/" + path, {
+  return requestJSON<{ url?: string }>("/api/auth/" + path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await r.json();
-  if (!r.ok)
-    throw Error(data.message || data.error || "Unable to complete request");
-  return data;
 }
 function SignIn({ onClose }: { onClose: () => void }) {
   const { account, refresh } = useAccount();

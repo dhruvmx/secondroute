@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import { requestJSON, connectionMessage } from "@/lib/connection";
 import { RecordNote } from "./record-note";
 import VenueMap from "./venue-map";
 import {
@@ -151,34 +152,40 @@ function Workspace() {
   const load = useCallback(async () => {
     if (!accountReady) return;
     try {
-      const response = await fetch(
+      const data = await requestJSON<State>(
         "/api/state" + (event ? "?event=" + encodeURIComponent(event) : ""),
         { headers: { "x-demo-role": role }, cache: "no-store" },
       );
-      const data = await response.json();
-      if (!response.ok) throw Error(data.error || "Unable to load operations");
       if (!event && data.events?.length) {
         setEvent(data.events[0].id);
         return;
       }
-      if (account.user && data.mode === "sample") {
+      if (!!account.user !== (data.mode === "workspace")) {
         await refreshAccount();
         return;
       }
       setState(data);
       setOnline(navigator.onLine);
-      if (account.user) localStorage.setItem(cacheKey, JSON.stringify(data));
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(data));
+      } catch {}
       setError("");
-    } catch {
+    } catch (loadError) {
       setOnline(false);
-      const cached = account.user ? localStorage.getItem(cacheKey) : null;
+      let cached: string | null = null;
+      try {
+        cached = localStorage.getItem(cacheKey);
+      } catch {}
       if (cached) {
         try {
           setState(JSON.parse(cached));
         } catch {}
       }
       setError(
-        "Connection unavailable. Showing last synchronized records. New captures stay queued.",
+        (loadError instanceof Error ? loadError.message : connectionMessage()) +
+          (cached
+            ? " Showing previously synchronized records. New captures stay queued."
+            : ""),
       );
     }
   }, [event, role, accountReady, account.user, cacheKey, refreshAccount]);
