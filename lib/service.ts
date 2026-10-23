@@ -393,6 +393,16 @@ export async function action(
     }
     if (action === "setLocation") {
       allow(role, ["admin"]);
+      if (input.zone_id && text(input.zone_id)) {
+        const zoneId = text(input.zone_id);
+        const z = await tx.query(
+          "SELECT id FROM zones WHERE org_id=$1 AND id=$2",
+          [org, zoneId],
+        );
+        if (!z.rows.length) throw new ApiError("Zone unavailable", 404);
+        await saveCoordinates(tx, "zones", zoneId, input);
+        return { ok: true };
+      }
       const eventId = text(input.event_id);
       if (
         !(

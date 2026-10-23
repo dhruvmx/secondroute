@@ -324,6 +324,31 @@ test("transactional recovery lifecycle, duplicates, permissions and passport tam
     (await state("riverlight")).metrics.captured,
     "CSV includes unbatched review captures in captured quantity",
   );
+  await action(
+    {
+      action: "setLocation",
+      event_id: "riverlight",
+      latitude: 12.9812,
+      longitude: 77.6015,
+    },
+    "admin",
+  );
+  await action(
+    {
+      action: "setLocation",
+      zone_id: "north",
+      latitude: 12.9815,
+      longitude: 77.6019,
+    },
+    "admin",
+  );
+  const updatedState = await state("riverlight");
+  const updatedEvent = updatedState.events.find((e) => e.id === "riverlight");
+  assert.equal(updatedEvent?.latitude, 12.9812);
+  assert.equal(updatedEvent?.longitude, 77.6015);
+  const updatedNorth = updatedState.zones.find((z) => z.id === "north");
+  assert.equal(updatedNorth?.latitude, 12.9815);
+  assert.equal(updatedNorth?.longitude, 77.6019);
   process.env.SECONDROUTE_MODE = "connected";
   assert.throws(
     () =>

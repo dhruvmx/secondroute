@@ -284,6 +284,61 @@ function Workspace() {
       .reduce((s, b) => s + b.weight, 0),
     rejected = batches.reduce((s, b) => s + b.rejected, 0);
   const ready = batches.filter((b) => b.status === "Ready");
+  const [customCoords, setCustomCoords] = useState<{
+    lat?: string;
+    lon?: string;
+  } | null>(null);
+  const [prevEventKey, setPrevEventKey] = useState<string>("");
+
+  const currentEventKey = currentEvent
+    ? `${currentEvent.id}:${currentEvent.latitude}:${currentEvent.longitude}`
+    : "";
+
+  if (prevEventKey !== currentEventKey) {
+    setPrevEventKey(currentEventKey);
+    setCustomCoords(null);
+  }
+
+  const mapLat =
+    customCoords?.lat ??
+    (currentEvent?.latitude != null ? String(currentEvent.latitude) : "");
+  const mapLon =
+    customCoords?.lon ??
+    (currentEvent?.longitude != null ? String(currentEvent.longitude) : "");
+
+  const handleLocationSelect = useCallback(
+    (coords: { latitude: number; longitude: number }) => {
+      setCustomCoords({
+        lat: coords.latitude.toFixed(6),
+        lon: coords.longitude.toFixed(6),
+      });
+    },
+    [],
+  );
+
+  const handleSaveLocation = async (coords: {
+    latitude: number;
+    longitude: number;
+    zoneId?: string;
+  }) => {
+    if (coords.zoneId) {
+      return await action({
+        action: "setLocation",
+        zone_id: coords.zoneId,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      });
+    }
+    if (currentEvent) {
+      return await action({
+        action: "setLocation",
+        event_id: currentEvent.id,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      });
+    }
+  };
+
   const go = (name: string) => {
     setView(name);
     setSearch("");
@@ -740,6 +795,8 @@ function Workspace() {
                         batches={batches}
                         onZone={setZone}
                         selectedZone={zone}
+                        onSaveLocation={handleSaveLocation}
+                        onLocationSelect={handleLocationSelect}
                       />
                       <div className="map-footer">
                         <span>
@@ -1239,6 +1296,8 @@ function Workspace() {
                       batches={batches}
                       onZone={setZone}
                       selectedZone={zone}
+                      onSaveLocation={handleSaveLocation}
+                      onLocationSelect={handleLocationSelect}
                     />
                   </section>
                   {account.user && currentEvent && (
@@ -1266,7 +1325,13 @@ function Workspace() {
                             min="-90"
                             max="90"
                             step="any"
-                            defaultValue={currentEvent.latitude ?? ""}
+                            value={mapLat}
+                            onChange={(e) =>
+                              setCustomCoords((prev) => ({
+                                ...prev,
+                                lat: e.target.value,
+                              }))
+                            }
                             required
                           />
                         </label>
@@ -1279,7 +1344,13 @@ function Workspace() {
                             min="-180"
                             max="180"
                             step="any"
-                            defaultValue={currentEvent.longitude ?? ""}
+                            value={mapLon}
+                            onChange={(e) =>
+                              setCustomCoords((prev) => ({
+                                ...prev,
+                                lon: e.target.value,
+                              }))
+                            }
                             required
                           />
                         </label>
@@ -1287,6 +1358,9 @@ function Workspace() {
                           Save map location
                         </button>
                       </div>
+                      <p className="form-hint">
+                        Click or drop a pin directly on the map above to set these coordinates automatically.
+                      </p>
                     </form>
                   )}
                   <div className="zone-grid">
@@ -1440,6 +1514,7 @@ function Workspace() {
                   step="any"
                   min="-90"
                   max="90"
+                  defaultValue={mapLat || ""}
                   placeholder="12.9716"
                 />
               </label>
@@ -1451,6 +1526,7 @@ function Workspace() {
                   step="any"
                   min="-180"
                   max="180"
+                  defaultValue={mapLon || ""}
                   placeholder="77.5946"
                 />
               </label>
