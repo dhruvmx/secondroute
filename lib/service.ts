@@ -368,10 +368,87 @@ export async function action(
           text(input.name),
           text(input.location),
           text(input.date) || "2026-10-22",
-          "Planning",
+          text(input.status) || "Planning",
         ],
       );
       await saveCoordinates(tx, "events", eventId, input);
+      return { ok: true, id: eventId };
+    }
+    if (action === "updateEvent") {
+      allow(role, ["admin"]);
+      if (org === "demo-org")
+        throw new ApiError("Sample events are read-only", 403);
+      const eventId = text(input.id || input.eventId || input.event_id);
+      if (!eventId) throw new ApiError("Event ID is required");
+      const existing = await tx.query<Event>(
+        "SELECT id,name,location,date,status FROM events WHERE org_id=$1 AND id=$2",
+        [org, eventId],
+      );
+      if (!existing.rows.length) throw new ApiError("Event unavailable", 404);
+      const name = text(input.name);
+      if (!name) throw new ApiError("Event name is required");
+      const location = text(input.location);
+      const date = text(input.date) || existing.rows[0].date;
+      const status = text(input.status) || existing.rows[0].status;
+      await tx.query(
+        "UPDATE events SET name=$1,location=$2,date=$3,status=$4 WHERE org_id=$5 AND id=$6",
+        [name, location, date, status, org, eventId],
+      );
+      if (input.latitude !== undefined && input.longitude !== undefined) {
+        if (
+          (input.latitude === "" || input.latitude === null) &&
+          (input.longitude === "" || input.longitude === null)
+        ) {
+          await tx.query(
+            "UPDATE events SET latitude=NULL,longitude=NULL WHERE org_id=$1 AND id=$2",
+            [org, eventId],
+          );
+        } else {
+          await saveCoordinates(tx, "events", eventId, input);
+        }
+      }
+      return { ok: true, id: eventId };
+    }
+    if (action === "deleteEvent") {
+      allow(role, ["admin"]);
+      if (org === "demo-org")
+        throw new ApiError("Sample events are read-only", 403);
+      const eventId = text(input.id || input.eventId || input.event_id);
+      if (!eventId) throw new ApiError("Event ID is required");
+      const existing = await tx.query<Event>(
+        "SELECT id FROM events WHERE org_id=$1 AND id=$2",
+        [org, eventId],
+      );
+      if (!existing.rows.length) throw new ApiError("Event unavailable", 404);
+
+      const [batchCount, captureCount] = await Promise.all([
+        tx.query<{ count: string }>(
+          "SELECT COUNT(*) AS count FROM batches WHERE org_id=$1 AND event_id=$2",
+          [org, eventId],
+        ),
+        tx.query<{ count: string }>(
+          "SELECT COUNT(*) AS count FROM captures WHERE org_id=$1 AND event_id=$2",
+          [org, eventId],
+        ),
+      ]);
+      if (
+        Number(batchCount.rows[0]?.count) > 0 ||
+        Number(captureCount.rows[0]?.count) > 0
+      ) {
+        throw new ApiError(
+          "Cannot delete event with existing batches or captures. Deletion is restricted to preserve recovery audit history.",
+          409,
+        );
+      }
+
+      await tx.query("DELETE FROM zones WHERE org_id=$1 AND event_id=$2", [
+        org,
+        eventId,
+      ]);
+      await tx.query("DELETE FROM events WHERE org_id=$1 AND id=$2", [
+        org,
+        eventId,
+      ]);
       return { ok: true, id: eventId };
     }
     if (action === "createZone") {

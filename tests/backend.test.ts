@@ -349,6 +349,98 @@ test("transactional recovery lifecycle, duplicates, permissions and passport tam
   const updatedNorth = updatedState.zones.find((z) => z.id === "north");
   assert.equal(updatedNorth?.latitude, 12.9815);
   assert.equal(updatedNorth?.longitude, 77.6019);
+
+  await assert.rejects(
+    action(
+      { action: "updateEvent", id: "riverlight", name: "Tampered" },
+      "admin",
+      "demo-org",
+    ),
+    /Sample events are read-only/,
+  );
+  await assert.rejects(
+    action(
+      { action: "deleteEvent", id: "riverlight" },
+      "admin",
+      "demo-org",
+    ),
+    /Sample events are read-only/,
+  );
+
+  await d.query(
+    "INSERT INTO organizations(id,name) VALUES('org-event-test','Event Test Org')",
+  );
+  const newEv = await action(
+    {
+      action: "createEvent",
+      name: "Summit 2026",
+      location: "Eco Pavilion",
+      date: "2026-11-15",
+      status: "Planning",
+      latitude: 12.9512,
+      longitude: 77.6512,
+    },
+    "admin",
+    "org-event-test",
+  );
+  assert.ok(newEv.id);
+  await action(
+    {
+      action: "createZone",
+      event_id: newEv.id,
+      name: "Zone Alpha",
+    },
+    "admin",
+    "org-event-test",
+  );
+  await action(
+    {
+      action: "updateEvent",
+      id: newEv.id,
+      name: "Summit 2026 Renamed",
+      location: "West Grounds",
+      date: "2026-11-20",
+      status: "Active",
+      latitude: 12.952,
+      longitude: 77.652,
+    },
+    "admin",
+    "org-event-test",
+  );
+  const testState = await state(String(newEv.id), undefined, "org-event-test");
+  const inspectedEv = testState.events.find((e) => e.id === newEv.id);
+  assert.equal(inspectedEv?.name, "Summit 2026 Renamed");
+  assert.equal(inspectedEv?.location, "West Grounds");
+  assert.equal(inspectedEv?.status, "Active");
+  assert.equal(inspectedEv?.latitude, 12.952);
+  assert.equal(inspectedEv?.longitude, 77.652);
+
+  await action(
+    {
+      action: "updateEvent",
+      id: newEv.id,
+      name: "Summit 2026 Renamed",
+      latitude: "",
+      longitude: "",
+    },
+    "admin",
+    "org-event-test",
+  );
+  const clearedState = await state(String(newEv.id), undefined, "org-event-test");
+  assert.equal(clearedState.events.find((e) => e.id === newEv.id)?.latitude, null);
+
+  const deleteRes = await action(
+    {
+      action: "deleteEvent",
+      id: newEv.id,
+    },
+    "admin",
+    "org-event-test",
+  );
+  assert.equal(deleteRes.ok, true);
+  const afterDeleteState = await state(undefined, undefined, "org-event-test");
+  assert.equal(afterDeleteState.events.find((e) => e.id === newEv.id), undefined);
+
   process.env.SECONDROUTE_MODE = "connected";
   assert.throws(
     () =>

@@ -34,18 +34,21 @@ import {
   Leaf,
   MapPin,
   Menu,
+  Pencil,
   Plus,
   RefreshCw,
   Route,
   Search,
   Settings2,
   ShieldCheck,
+  Trash2,
   Truck,
   Users,
   Wifi,
   WifiOff,
   X,
 } from "lucide-react";
+import LocationPicker from "./location-picker";
 import {
   ResponsiveContainer,
   BarChart,
@@ -55,7 +58,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import type { Batch, State } from "@/lib/types";
+import type { Batch, Event, State } from "@/lib/types";
 import { useUI, useSidebar, type SidebarMode } from "./ui-store";
 import {
   enqueue,
@@ -133,7 +136,42 @@ function Workspace() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [modal, setModal] = useState<"capture" | "event" | "zone" | null>(null);
+  const [modal, setModal] = useState<
+    "capture" | "event" | "zone" | "editEvent" | "deleteEvent" | null
+  >(null);
+  const [targetEvent, setTargetEvent] = useState<Event | null>(null);
+  const [eventFormCoords, setEventFormCoords] = useState<{
+    lat: string;
+    lon: string;
+  }>({ lat: "", lon: "" });
+  const openCreateEvent = () => {
+    if (!account.user) {
+      signIn();
+      return;
+    }
+    setEventFormCoords({ lat: "", lon: "" });
+    setModal("event");
+  };
+  const openEditEvent = (ev: Event) => {
+    if (!account.user) {
+      signIn();
+      return;
+    }
+    setTargetEvent(ev);
+    setEventFormCoords({
+      lat: ev.latitude != null ? String(ev.latitude) : "",
+      lon: ev.longitude != null ? String(ev.longitude) : "",
+    });
+    setModal("editEvent");
+  };
+  const confirmDeleteEvent = (ev: Event) => {
+    if (!account.user) {
+      signIn();
+      return;
+    }
+    setTargetEvent(ev);
+    setModal("deleteEvent");
+  };
   const [selected, setSelected] = useState<Batch | null>(null);
   const [queue, setQueue] = useState<PendingCapture[]>([]);
   const [online, setOnline] = useState(true);
@@ -525,7 +563,7 @@ function Workspace() {
                   Create an event, add recovery zones and partners, then capture
                   your first material.
                 </p>
-                <button className="primary" onClick={() => setModal("event")}>
+                <button className="primary" onClick={openCreateEvent}>
                   Create your first event
                 </button>
               </div>
@@ -610,6 +648,31 @@ function Workspace() {
                   : "Date not set"}
               </span>
             </div>
+            {account.user &&
+              currentEvent &&
+              currentEvent.id !== "riverlight" &&
+              currentEvent.id !== "design-week" && (
+                <div className="event-bar-actions">
+                  <button
+                    type="button"
+                    className="event-pill-btn"
+                    onClick={() => openEditEvent(currentEvent)}
+                    title="Edit current event"
+                  >
+                    <Pencil size={13} />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="event-pill-btn danger"
+                    onClick={() => confirmDeleteEvent(currentEvent)}
+                    title="Delete current event"
+                  >
+                    <Trash2 size={13} />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              )}
             <span className={`sync ${online ? "" : "offline"}`}>
               {online ? <Wifi size={14} /> : <WifiOff size={14} />}{" "}
               {online
@@ -1243,38 +1306,79 @@ function Workspace() {
                 <>
                   <div className="section-row">
                     <h2>Events</h2>
-                    <button
-                      className="secondary"
-                      onClick={() =>
-                        account.user ? setModal("event") : signIn()
-                      }
-                    >
+                    <button className="secondary" onClick={openCreateEvent}>
                       <Plus size={16} />
                       New event
                     </button>
                   </div>
                   <div className="event-grid">
-                    {state.events.map((e) => (
-                      <button
-                        className="panel event-card"
-                        key={e.id}
-                        onClick={() => {
-                          setEvent(e.id);
-                          setZone("");
-                        }}
-                      >
-                        <span className="eyebrow">
-                          {account.user ? "YOUR EVENT" : "SAMPLE EVENT"}
-                        </span>
-                        <h2>{e.name}</h2>
-                        <p>
-                          <MapPin size={15} />
-                          {e.location}
-                        </p>
-                        <small>{new Date(e.date).toLocaleDateString()}</small>
-                        <Badge status={e.status} />
-                      </button>
-                    ))}
+                    {state.events.map((e) => {
+                      const isSample =
+                        e.id === "riverlight" || e.id === "design-week";
+                      const canManage = account.user && !isSample;
+                      return (
+                        <div
+                          className={`panel event-card ${e.id === currentEvent?.id ? "active-card" : ""}`}
+                          key={e.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => {
+                            setEvent(e.id);
+                            setZone("");
+                          }}
+                          onKeyDown={(ev) => {
+                            if (ev.key === "Enter" || ev.key === " ") {
+                              setEvent(e.id);
+                              setZone("");
+                            }
+                          }}
+                        >
+                          <div className="event-card-top">
+                            <span className="eyebrow">
+                              {canManage ? "YOUR EVENT" : "SAMPLE EVENT"}
+                            </span>
+                            {canManage && (
+                              <div
+                                className="event-card-actions"
+                                onClick={(ev) => ev.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  className="event-action-btn"
+                                  aria-label={`Edit ${e.name}`}
+                                  title="Edit event"
+                                  onClick={(ev) => {
+                                    ev.stopPropagation();
+                                    openEditEvent(e);
+                                  }}
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="event-action-btn danger"
+                                  aria-label={`Delete ${e.name}`}
+                                  title="Delete event"
+                                  onClick={(ev) => {
+                                    ev.stopPropagation();
+                                    confirmDeleteEvent(e);
+                                  }}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          <h2>{e.name}</h2>
+                          <p>
+                            <MapPin size={15} />
+                            {e.location}
+                          </p>
+                          <small>{new Date(e.date).toLocaleDateString()}</small>
+                          <Badge status={e.status} />
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="section-row">
                     <h2>Recovery zones</h2>
@@ -1461,9 +1565,236 @@ function Workspace() {
           }}
         />
       )}
-      {(modal === "event" || modal === "zone") && (
+      {modal === "event" && (
+        <Dialog title="Create an event" onClose={() => setModal(null)}>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              const result = await action({
+                action: "createEvent",
+                name: f.get("name"),
+                location: f.get("location"),
+                date: f.get("date"),
+                status: f.get("status") || "Planning",
+                latitude: eventFormCoords.lat,
+                longitude: eventFormCoords.lon,
+              });
+              if (result) {
+                setModal(null);
+                if (result.id) setEvent(String(result.id));
+                setNotice("Event created successfully.");
+                void load();
+              }
+            }}
+          >
+            <label>
+              Name
+              <input name="name" placeholder="e.g. EcoHarvest Festival 2026" required />
+            </label>
+            <label>
+              Location
+              <input name="location" placeholder="e.g. South Pavilion Grounds" required />
+            </label>
+            <div className="form-row">
+              <label>
+                Date
+                <input
+                  name="date"
+                  type="date"
+                  defaultValue={new Date().toISOString().slice(0, 10)}
+                  required
+                />
+              </label>
+              <label>
+                Status
+                <select name="status" defaultValue="Planning">
+                  <option value="Planning">Planning</option>
+                  <option value="Active">Active</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </label>
+            </div>
+            <LocationPicker
+              latitude={eventFormCoords.lat}
+              longitude={eventFormCoords.lon}
+              onChange={(lat, lon) => setEventFormCoords({ lat, lon })}
+            />
+            <button className="primary" disabled={busy}>
+              Save event
+            </button>
+            {error && (
+              <p className="error-copy" role="alert">
+                {error}
+              </p>
+            )}
+          </form>
+        </Dialog>
+      )}
+      {modal === "editEvent" && targetEvent && (
         <Dialog
-          title={modal === "event" ? "Create an event" : "Add a recovery zone"}
+          title={`Edit event: ${targetEvent.name}`}
+          onClose={() => {
+            setModal(null);
+            setTargetEvent(null);
+          }}
+        >
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              const result = await action({
+                action: "updateEvent",
+                id: targetEvent.id,
+                name: f.get("name"),
+                location: f.get("location"),
+                date: f.get("date"),
+                status: f.get("status"),
+                latitude: eventFormCoords.lat,
+                longitude: eventFormCoords.lon,
+              });
+              if (result) {
+                setModal(null);
+                setTargetEvent(null);
+                setNotice("Event updated successfully.");
+                void load();
+              }
+            }}
+          >
+            <label>
+              Name
+              <input name="name" defaultValue={targetEvent.name} required />
+            </label>
+            <label>
+              Location
+              <input
+                name="location"
+                defaultValue={targetEvent.location}
+                required
+              />
+            </label>
+            <div className="form-row">
+              <label>
+                Date
+                <input
+                  name="date"
+                  type="date"
+                  defaultValue={
+                    targetEvent.date ? targetEvent.date.slice(0, 10) : ""
+                  }
+                  required
+                />
+              </label>
+              <label>
+                Status
+                <select
+                  name="status"
+                  defaultValue={targetEvent.status || "Active"}
+                >
+                  <option value="Planning">Planning</option>
+                  <option value="Active">Active</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </label>
+            </div>
+            <LocationPicker
+              latitude={eventFormCoords.lat}
+              longitude={eventFormCoords.lon}
+              onChange={(lat, lon) => setEventFormCoords({ lat, lon })}
+              defaultCenter={
+                targetEvent.latitude != null && targetEvent.longitude != null
+                  ? { lat: targetEvent.latitude, lon: targetEvent.longitude }
+                  : undefined
+              }
+            />
+            <div className="dialog-button-row">
+              <button className="primary" disabled={busy}>
+                Save changes
+              </button>
+              <button
+                type="button"
+                className="secondary danger-text"
+                onClick={() => setModal("deleteEvent")}
+              >
+                <Trash2 size={15} />
+                Delete event
+              </button>
+            </div>
+            {error && (
+              <p className="error-copy" role="alert">
+                {error}
+              </p>
+            )}
+          </form>
+        </Dialog>
+      )}
+      {modal === "deleteEvent" && targetEvent && (
+        <Dialog
+          title="Delete event"
+          onClose={() => {
+            setModal(null);
+            setTargetEvent(null);
+          }}
+        >
+          <div className="delete-dialog-content">
+            <p>
+              Are you sure you want to delete <strong>{targetEvent.name}</strong>?
+            </p>
+            <p className="form-hint">
+              This will permanently remove the event and any empty zones associated with it. This action cannot be undone.
+            </p>
+            {error && (
+              <p className="error-copy" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="dialog-button-row">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setModal(null);
+                  setTargetEvent(null);
+                }}
+                disabled={busy}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary danger-btn"
+                disabled={busy}
+                onClick={async () => {
+                  const result = await action({
+                    action: "deleteEvent",
+                    id: targetEvent.id,
+                  });
+                  if (result) {
+                    const remaining =
+                      state?.events.filter((ev) => ev.id !== targetEvent.id) ||
+                      [];
+                    if (event === targetEvent.id) {
+                      setEvent(remaining[0]?.id || "");
+                      setZone("");
+                    }
+                    setModal(null);
+                    setTargetEvent(null);
+                    setNotice(`Event "${targetEvent.name}" was deleted.`);
+                    void load();
+                  }
+                }}
+              >
+                <Trash2 size={15} />
+                Delete event
+              </button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+      {modal === "zone" && (
+        <Dialog
+          title="Add a recovery zone"
           onClose={() => setModal(null)}
         >
           <form
@@ -1471,17 +1802,14 @@ function Workspace() {
               e.preventDefault();
               const f = new FormData(e.currentTarget);
               const result = await action({
-                action: modal === "event" ? "createEvent" : "createZone",
+                action: "createZone",
                 name: f.get("name"),
-                location: f.get("location"),
-                date: f.get("date"),
                 eventId: event || currentEvent?.id,
                 latitude: f.get("latitude"),
                 longitude: f.get("longitude"),
               });
               if (result) {
                 setModal(null);
-                if (modal === "event") setEvent(String(result.id));
               }
             }}
           >
@@ -1489,20 +1817,8 @@ function Workspace() {
               Name
               <input name="name" required />
             </label>
-            {modal === "event" && (
-              <>
-                <label>
-                  Location
-                  <input name="location" required />
-                </label>
-                <label>
-                  Date
-                  <input name="date" type="date" required />
-                </label>
-              </>
-            )}
             <p className="form-hint">
-              Coordinates place this {modal} on OpenStreetMap. Leave both blank
+              Coordinates place this zone on OpenStreetMap. Leave both blank
               if the location is not available yet.
             </p>
             <div className="form-row">
@@ -1532,7 +1848,7 @@ function Workspace() {
               </label>
             </div>
             <button className="primary" disabled={busy}>
-              Save {modal}
+              Save zone
             </button>
             {error && (
               <p className="error-copy" role="alert">

@@ -143,12 +143,16 @@ export async function actorFor(request: Request, write = false) {
   }
   if (write) {
     const origin = request.headers.get("origin");
-    if (
-      !origin ||
-      origin !==
-        new URL(process.env.BETTER_AUTH_URL || "http://127.0.0.1:3000").origin
-    )
+    if (!origin) {
+      throw new ApiError("Missing request origin", 400);
+    }
+    const allowedOrigins = [
+      new URL(process.env.BETTER_AUTH_URL || "http://127.0.0.1:3000").origin,
+      "http://localhost:3000",
+    ];
+    if (!allowedOrigins.includes(origin)) {
       throw new ApiError("Request origin is not allowed", 403);
+    }
   }
   const d = await db();
   const membership = await d.transaction(async (tx) => {
